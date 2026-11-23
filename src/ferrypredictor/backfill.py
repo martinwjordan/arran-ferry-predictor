@@ -1,10 +1,11 @@
-"""backfill job: archived Open-Meteo forecasts as they were issued 0 to 5 days ahead, for training.
+"""backfill job: archived Open-Meteo forecasts as they were issued 1 to 5 days ahead, for training.
 
 Source: Open-Meteo's Previous Runs API. `<variable>_previous_dayN` is the value forecast N days
 (24N hours) before the valid time, so training can use forecasts exactly as they stood at each
 lead day, with no look-ahead. Coverage found on 23 November 2026: GFS and ECMWF 0.25 degree from
 mid-2024 (ECMWF 0.25 without gusts), UK Met Office global from 2025, ECMWF 9 km from late 2025.
 Months before a model's archive starts come back empty and are recorded as done with no rows.
+Lead day 0 (the current run) is not archived, so same-day forecasts come from the live log only.
 
 Work is split into (model, month) chunks. Each chunk is written as its own part file and then
 recorded in data/state/backfill_done.json, so a stopped run resumes where it left off. Runs stop
@@ -26,7 +27,7 @@ from .storage import append_rows, load_state, save_state
 
 ARCHIVE_URL = "https://previous-runs-api.open-meteo.com/v1/forecast"
 MODELS = ["gfs_seamless", "ecmwf_ifs025", "ecmwf_ifs", "ukmo_global_deterministic_10km", "ukmo_uk_deterministic_2km"]
-LEAD_DAYS = range(0, 6)
+LEAD_DAYS = range(1, 6)
 START = date(2024, 1, 1)
 END = date(2026, 11, 23)  # the live forecast log covers later dates
 VARS = {"wind_speed_10m": "wind_speed_kn", "wind_gusts_10m": "wind_gust_kn", "wind_direction_10m": "wind_dir_deg"}

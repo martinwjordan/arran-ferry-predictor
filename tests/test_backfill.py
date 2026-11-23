@@ -55,8 +55,9 @@ def test_months_are_clipped_to_the_range():
 
 def test_request_asks_for_sea_cells_and_every_lead_day(tmp_path):
     names = backfill.hourly_variables().split(",")
-    assert "wind_gusts_10m_previous_day5" in names and "wind_speed_10m_previous_day0" in names
-    assert len(names) == 18
+    assert "wind_gusts_10m_previous_day5" in names and "wind_speed_10m_previous_day1" in names
+    assert "wind_speed_10m_previous_day0" not in names  # never archived
+    assert len(names) == 15
     with respx.mock() as mock:
         route = mock.get(
             backfill.ARCHIVE_URL,
@@ -70,7 +71,7 @@ def test_rows_per_point_hour_and_lead_day_with_grid_cell(tmp_path):
     with respx.mock() as mock:
         mock.get(backfill.ARCHIVE_URL, params={"cell_selection": "sea"}).mock(side_effect=responder)
         summary = run(tmp_path, start=date(2024, 1, 31), end=date(2024, 1, 31))
-    assert summary == {"chunks_fetched": 1, "rows": 5 * 24 * 6, "chunks_done": 1, "chunks_total": 1}
+    assert summary == {"chunks_fetched": 1, "rows": 5 * 24 * 5, "chunks_done": 1, "chunks_total": 1}
     r = [x for x in rows(tmp_path) if x["point"] == "brodick" and x["lead_day"] == 3]
     assert len(r) == 24
     assert r[0]["wind_speed_kn"] == 13.0 and r[0]["wind_gust_kn"] == 23.0
@@ -79,11 +80,11 @@ def test_rows_per_point_hour_and_lead_day_with_grid_cell(tmp_path):
 
 
 def test_lead_days_outside_the_archive_are_dropped(tmp_path):
-    payload = archive_payload(date(2024, 1, 31), date(2024, 1, 31), lead_days=range(0, 2))
+    payload = archive_payload(date(2024, 1, 31), date(2024, 1, 31), lead_days=range(1, 3))
     with respx.mock() as mock:
         mock.get(backfill.ARCHIVE_URL).mock(return_value=httpx.Response(200, json=payload))
         run(tmp_path, start=date(2024, 1, 31), end=date(2024, 1, 31))
-    assert {x["lead_day"] for x in rows(tmp_path)} == {0, 1}
+    assert {x["lead_day"] for x in rows(tmp_path)} == {1, 2}
 
 
 def test_runs_resume_where_the_last_one_stopped(tmp_path):
