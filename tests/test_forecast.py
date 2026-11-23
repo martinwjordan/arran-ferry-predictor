@@ -16,23 +16,28 @@ def hours(start, n):
     return [(start + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M") for i in range(n)]
 
 
+def cell(i):
+    """A distinct grid cell per point, as Open-Meteo returns for well-chosen points."""
+    return {"latitude": 55.5 + i / 100, "longitude": -5.0 + i / 100}
+
+
 def wind_payload(n_hours=12, start=datetime(2026, 11, 23, 0, 0)):
     return [
-        {"latitude": 55.6, "longitude": -5.0, "hourly": {
+        {**cell(i), "hourly": {
             "time": hours(start, n_hours),
             "wind_speed_10m": [10.0 + i for i in range(n_hours)],
             "wind_gusts_10m": [20.0 + i for i in range(n_hours)],
             "wind_direction_10m": [90.0] * n_hours,
         }}
-        for _ in POINTS
+        for i, _ in enumerate(POINTS)
     ]
 
 
 def marine_payload(n_hours=12, start=datetime(2026, 11, 23, 0, 0)):
     out = []
-    for p in POINTS:
+    for i, p in enumerate(POINTS):
         on_land = p in ("troon", "ardrossan")
-        out.append({"latitude": 55.6, "longitude": -5.0, "hourly": {
+        out.append({**cell(i), "hourly": {
             "time": hours(start, n_hours),
             "wave_height": [None if on_land else 1.2] * n_hours,
             "wave_period": [None if on_land else 5.0] * n_hours,
@@ -48,8 +53,11 @@ def meta(init):
 @pytest.fixture
 def api():
     with respx.mock(assert_all_called=False) as mock:
-        mock.get(forecast.FORECAST_URL, params={"models": "ecmwf_ifs"}).mock(return_value=httpx.Response(200, json=wind_payload()))
-        mock.get(forecast.FORECAST_URL, params={"models": "ukmo_uk_deterministic_2km"}).mock(
+        # Routes only match requests that ask for sea grid cells.
+        mock.get(forecast.FORECAST_URL, params={"models": "ecmwf_ifs", "cell_selection": "sea"}).mock(
+            return_value=httpx.Response(200, json=wind_payload())
+        )
+        mock.get(forecast.FORECAST_URL, params={"models": "ukmo_uk_deterministic_2km", "cell_selection": "sea"}).mock(
             return_value=httpx.Response(200, json=wind_payload(n_hours=10))
         )
         mock.get(forecast.MARINE_URL).mock(return_value=httpx.Response(200, json=marine_payload()))
@@ -118,3 +126,22 @@ def test_failed_request_still_writes_the_rest_then_raises(api, tmp_path):
     assert models == {"ecmwf_ifs", "ukmo_uk_deterministic_2km"}
     health = json.loads((tmp_path / "site" / "health" / "forecast.json").read_text())
     assert "marine" in health["error"]
+
+
+def test_rows_record_their_grid_cell(api, tmp_path):
+    summary = run(tmp_path)
+    brodick = [x for x in rows(tmp_path) if x["model"] == "ecmwf_ifs" and x["point"] == "brodick"]
+    assert brodick[0]["grid_lat"] == pytest.approx(55.52)
+    assert brodick[0]["grid_lon"] == pytest.approx(-4.98)
+    assert "shared_grid_cells" not in summary
+
+
+def test_points_sharing_a_grid_cell_are_flagged(api, tmp_path):
+    payload = wind_payload()
+    for i in (0, 3, 4):  # ardrossan, mid_ardrossan, mid_troon on one cell, as found live
+        payload[i].update(latitude=55.641, longitude=-4.746)
+    api.get(forecast.FORECAST_URL, params={"models": "ecmwf_ifs", "cell_selection": "sea"}).mock(
+        return_value=httpx.Response(200, json=payload)
+    )
+    summary = run(tmp_path)
+    assert summary["shared_grid_cells"] == {"ecmwf_ifs": [["ardrossan", "mid_ardrossan", "mid_troon"]]}

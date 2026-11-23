@@ -2,12 +2,17 @@
 
 Open-Meteo data is licensed CC BY 4.0. ECMWF IFS is the backfillable model; the UK Met Office
 2 km model adds detail for the first day or two. Each model is written once per model run.
+
+Wind requests ask for sea grid cells. Open-Meteo's default picks a land cell, which put the
+ECMWF mid-crossing points on one inland cell near Irvine (found 23 November 2026). Each row
+records the grid cell it came from, and points sharing a cell are flagged in the job health.
 """
 
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta, timezone
+from collections import defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -38,6 +43,8 @@ FORECAST_SCHEMA = pa.schema(
         pa.field("wave_height_m", pa.float64()),
         pa.field("wave_period_s", pa.float64()),
         pa.field("wave_dir_deg", pa.float64()),
+        pa.field("grid_lat", pa.float64()),
+        pa.field("grid_lon", pa.float64()),
     ]
 )
 
@@ -102,6 +109,7 @@ def _rows(model, payload, names, variables, run_time, fetched_at) -> list[dict]:
     out = []
     for name, loc in zip(names, payload):
         hourly = loc.get("hourly") or {}
+        grid = {"grid_lat": loc.get("latitude"), "grid_lon": loc.get("longitude")}
         for i, t in enumerate(hourly.get("time", [])):
             valid = datetime.fromisoformat(t).replace(tzinfo=timezone.utc)
             if valid < first_hour:
@@ -118,8 +126,23 @@ def _rows(model, payload, names, variables, run_time, fetched_at) -> list[dict]:
                 valid_time=valid,
                 lead_hours=(valid - base).total_seconds() / 3600,
                 **values,
+                **grid,
             )
             out.append(row)
+    return out
+
+
+def shared_cells(rows: list[dict]) -> dict[str, list[list[str]]]:
+    """Per model, groups of points served by the same grid cell (they would get identical data)."""
+    cells: dict[str, dict[tuple, set]] = defaultdict(lambda: defaultdict(set))
+    for r in rows:
+        if r["grid_lat"] is not None and r["grid_lon"] is not None:
+            cells[r["model"]][(round(r["grid_lat"], 4), round(r["grid_lon"], 4))].add(r["point"])
+    out = {}
+    for model, by_cell in cells.items():
+        groups = sorted(sorted(p) for p in by_cell.values() if len(p) > 1)
+        if groups:
+            out[model] = groups
     return out
 
 
@@ -145,7 +168,8 @@ def run_forecast(contact_email: str, now: datetime, data_dir: Path, site_dir: Pa
             continue
         try:
             payload = http.get_json(
-                FORECAST_URL, {**coords, "models": model, "hourly": ",".join(_WIND_VARS), "wind_speed_unit": "kn"}
+                FORECAST_URL,
+                {**coords, "models": model, "hourly": ",".join(_WIND_VARS), "wind_speed_unit": "kn", "cell_selection": "sea"},
             )
             rows = _rows(model, payload, names, _WIND_VARS, run_time, now)
         except ForecastError as e:
@@ -168,6 +192,9 @@ def run_forecast(contact_email: str, now: datetime, data_dir: Path, site_dir: Pa
     append_rows(data_dir / "forecasts", all_rows, FORECAST_SCHEMA, now)
     save_state(state_path, last_runs)
     summary = {"rows": counts, "run_times": last_runs}
+    shared = shared_cells(all_rows)
+    if shared:
+        summary["shared_grid_cells"] = shared
     if errors:
         update_health(site_dir, "forecast", now, ok=False, details={"error": "; ".join(errors)})
         raise ForecastError("; ".join(errors))
