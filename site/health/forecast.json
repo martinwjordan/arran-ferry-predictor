@@ -10,7 +10,9 @@
    "ukmo_uk_deterministic_2km": "2026-11-23T08:00:00+00:00"
   }
  },
+ "error": "ForecastError: ecmwf_ifs: network error: _ssl.c:994: The handshake operation timed out",
  "job": "forecast",
+ "last_failure": "2026-11-23T16:02:33+00:00",
  "last_success": "2026-11-23T12:37:18+00:00",
- "updated": "2026-11-23T12:37:18+00:00"
+ "updated": "2026-11-23T16:02:33+00:00"
 }
