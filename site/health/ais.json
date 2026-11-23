@@ -1,28 +1,19 @@
 {
  "details": {
-  "distinct_ships": 18,
+  "distinct_ships": 1,
   "message_types": {
-   "PositionReport": 16,
-   "ShipStaticData": 5,
    "SubscriptionConfirmation": 1
   },
-  "messages": 22,
+  "messages": 1,
   "records": 0,
   "top_ships": {
-   "ARGYLL FLYER": 2,
-   "CARLY": 1,
-   "JAN LEEGHWATER": 1,
-   "LAGANMAN": 1,
-   "MVAS BEACHCOMBER": 1,
-   "None": 1,
-   "OCEAN SHOALBUSTER": 1,
-   "WILSON HANSTHOLM": 4
+   "None": 1
   },
   "vessels": {}
  },
  "error": "AisError: aisstream connection failed: timed out during opening handshake",
  "job": "ais",
  "last_failure": "2026-11-23T12:42:22+00:00",
- "last_success": "2026-11-23T12:43:24+00:00",
- "updated": "2026-11-23T12:43:24+00:00"
+ "last_success": "2026-11-23T12:45:43+00:00",
+ "updated": "2026-11-23T12:45:43+00:00"
 }
