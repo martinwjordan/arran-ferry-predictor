@@ -2,8 +2,9 @@
 
 Source: Open-Meteo's Previous Runs API. `<variable>_previous_dayN` is the value forecast N days
 (24N hours) before the valid time, so training can use forecasts exactly as they stood at each
-lead day, with no look-ahead. Coverage found on 23 November 2026: GFS and ECMWF 0.25 degree from
-mid-2024 (ECMWF 0.25 without gusts), UK Met Office global from 2025, ECMWF 9 km from late 2025.
+lead day, with no look-ahead. Archive starts found on 23 November 2026: GFS January 2024; ECMWF
+0.25 degree February 2024 (no gusts); UK Met Office global and 2 km August 2024 (2 km: lead days 1-2
+only); ECMWF 9 km January 2025.
 Months before a model's archive starts come back empty and are recorded as done with no rows.
 Lead day 0 (the current run) is not archived, so same-day forecasts come from the live log only.
 
