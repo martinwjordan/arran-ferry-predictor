@@ -1,11 +1,11 @@
 {
  "details": {
-  "chunks_done": 5,
-  "chunks_fetched": 5,
+  "chunks_done": 65,
+  "chunks_fetched": 60,
   "chunks_total": 175,
-  "rows": 78900
+  "rows": 1069200
  },
  "job": "backfill",
- "last_success": "2026-11-23T19:45:38+00:00",
- "updated": "2026-11-23T19:45:38+00:00"
+ "last_success": "2026-11-23T19:47:10+00:00",
+ "updated": "2026-11-23T19:47:10+00:00"
 }
