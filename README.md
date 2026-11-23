@@ -15,7 +15,7 @@ Scheduled GitHub Actions jobs:
 | Job | Schedule | What it does |
 |---|---|---|
 | `collect` | Every 20 minutes | Logs CalMac route status, notices and the timetable for the next week |
-| `ais` | Every 20 minutes | Listens to AIS ship positions around Arran for three minutes |
+| `ais` | Paused | Listens to AIS ship positions around Arran for three minutes. Paused on 23 November 2026: aisstream.io has no receiver coverage of the Arran crossings. Re-enable from the Actions tab once a covering source exists. |
 | `forecast` | Four times a day | Logs wind and wave forecasts for the ports and mid-channel |
 
 Collected data lives on the [`data` branch](../../tree/data), so the code history on `main` stays readable:
