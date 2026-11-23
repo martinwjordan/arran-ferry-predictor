@@ -42,3 +42,7 @@ py -3.12 -m venv .venv
 pip install -e ".[dev]"
 pytest
 ```
+
+## Licence
+
+Code: [MIT](LICENSE). Forecast data from Open-Meteo is CC BY 4.0; CalMac and AIS data remain subject to their providers' terms.
