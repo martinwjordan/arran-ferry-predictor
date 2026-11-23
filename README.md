@@ -17,6 +17,7 @@ Scheduled GitHub Actions jobs:
 | `collect` | Every 20 minutes | Logs CalMac route status, notices and the timetable for the next week |
 | `ais` | Paused | Listens to AIS ship positions around Arran for three minutes. Paused on 23 November 2026: aisstream.io has no receiver coverage of the Arran crossings. Re-enable from the Actions tab once a covering source exists. |
 | `forecast` | Four times a day | Logs wind and wave forecasts for the ports and mid-channel |
+| `backfill` | By hand, until complete | Fetches archived forecasts as issued 0 to 5 days ahead (GFS, ECMWF, UK Met Office; January 2024 to 23 November 2026, where each model's archive allows) into `data/forecast_archive/`, for training. Resumes where the last run stopped; progress in `site/health/backfill.json`. |
 
 Scheduling: GitHub has not been firing the cron schedules reliably for this repo, so the jobs are started by an outside timer (cron-job.org, live since 23 November 2026; its token expires 22 November 2027). See [docs/scheduling.md](docs/scheduling.md).
 

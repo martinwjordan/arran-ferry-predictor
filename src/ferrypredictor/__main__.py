@@ -1,4 +1,4 @@
-"""Command line: python -m ferrypredictor collect | ais | forecast"""
+"""Command line: python -m ferrypredictor collect | ais | forecast | backfill"""
 
 from __future__ import annotations
 
@@ -16,7 +16,12 @@ from .config import REPO_ROOT
 DATA_DIR = Path(os.environ.get("FERRY_DATA_DIR", REPO_ROOT / "data"))
 SITE_DIR = Path(os.environ.get("FERRY_SITE_DIR", REPO_ROOT / "site"))
 
-REQUIRED = {"collect": ["CONTACT_EMAIL"], "ais": ["AISSTREAM_API_KEY"], "forecast": ["CONTACT_EMAIL"]}
+REQUIRED = {
+    "collect": ["CONTACT_EMAIL"],
+    "ais": ["AISSTREAM_API_KEY"],
+    "forecast": ["CONTACT_EMAIL"],
+    "backfill": ["CONTACT_EMAIL"],
+}
 
 
 def _collect(env: dict, now: datetime) -> dict:
@@ -40,6 +45,13 @@ def _forecast(env: dict, now: datetime) -> dict:
     return run_forecast(env["CONTACT_EMAIL"], now, DATA_DIR, SITE_DIR)
 
 
+def _backfill(env: dict, now: datetime) -> dict:
+    from .backfill import run_backfill
+
+    chunks = int(os.environ.get("FERRY_BACKFILL_CHUNKS") or 40)
+    return run_backfill(env["CONTACT_EMAIL"], now, DATA_DIR, SITE_DIR, max_chunks=chunks)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="ferrypredictor")
     parser.add_argument("job", choices=sorted(REQUIRED))
@@ -51,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     env = {k: os.environ[k] for k in REQUIRED[args.job]}
     now = datetime.now(timezone.utc)
-    job = {"collect": _collect, "ais": _ais, "forecast": _forecast}[args.job]
+    job = {"collect": _collect, "ais": _ais, "forecast": _forecast, "backfill": _backfill}[args.job]
     try:
         summary = job(env, now)
     except Exception as e:  # report and fail the run; the workflow raises an issue on repeats

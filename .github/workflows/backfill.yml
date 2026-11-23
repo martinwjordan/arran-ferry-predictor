@@ -1,0 +1,46 @@
+name: backfill
+
+# One-off: archived forecasts for model training. Started by hand; each run fetches up to
+# `chunks` (model, month) chunks and resumes where the last run stopped.
+on:
+  workflow_dispatch:
+    inputs:
+      chunks:
+        description: "Chunks to fetch this run (one model-month each)"
+        required: false
+        default: "40"
+
+concurrency:
+  group: backfill
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FERRY_CONFIG_DIR: ${{ github.workspace }}/config
+      FERRY_DATA_DIR: ${{ github.workspace }}/store/data
+      FERRY_SITE_DIR: ${{ github.workspace }}/store/site
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e .
+      - name: Check out the data branch
+        run: bash scripts/checkout_data_branch.sh store
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Fetch archived forecasts
+        run: python -m ferrypredictor backfill
+        env:
+          CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+          FERRY_BACKFILL_CHUNKS: ${{ inputs.chunks }}
+      - name: Commit data
+        if: always()
+        run: 'bash scripts/commit_with_retry.sh "backfill: $(date -u +%Y-%m-%dT%H:%MZ)" store'
