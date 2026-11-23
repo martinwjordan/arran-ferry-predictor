@@ -98,7 +98,7 @@ All data lives in the repo as append-only Parquet files, partitioned by month.
 
 **Events** (`data/events/`): one row per sailing-level fact extracted from a notice.
 - `sailing_id`, `event_type` (`cancelled`, `diverted`, `at_risk`, `at_risk_diversion`, `reinstated`, `review_at`), `diversion_port`, `reason`, `notice_id`, `notice_version`, `first_seen_at`, `parser_confidence`, matched sentence.
-- Sailing IDs use CalMac's integer `portPairSailings.id`, with route code, direction and scheduled departure kept alongside for matching history.
+- Sailings are identified by a stable key: route code, departure port and scheduled departure in UTC (for example `301|Troon|2026-11-23T18:10:00+00:00`). CalMac's integer `portPairSailings.id` is kept for reference only: CalMac reissued every id on 23 November 2026.
 
 **Vessel state** (`data/vessels/`): which vessel is operating each route, by date. Sources in priority order: Claude review, notice text ("MV Alfred is currently operating on this route"), route-level vessel list when it has a single entry.
 
@@ -247,4 +247,6 @@ All data lives in the repo as append-only Parquet files, partitioned by month.
 | Outcome labels | Parsed from notice text; unresolved text goes to Claude review | The feed never marks sailings cancelled |
 | Vessel per sailing | Inferred per route per day from notices and Claude review | The feed lists vessels only per route |
 | Timetable | From the feed's `portPairSailings` | Covers the loaded timetable period; no PDF parsing |
+| Sailing identity | Route, departure port and scheduled time | CalMac's sailing ids are reissued without notice |
+| Scheduling | Outside timer calling GitHub's API (see `docs/scheduling.md`) | GitHub fired no cron runs in the first three hours |
 | AIS cross-check | In version one, from Phase 1 | Independent check on parsed labels; cannot be backfilled free later |
