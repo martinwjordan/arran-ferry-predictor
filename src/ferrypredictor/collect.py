@@ -39,7 +39,8 @@ NOTICE_SCHEMA = pa.schema(
 
 SAILING_SCHEMA = pa.schema(
     [
-        pa.field("sailing_id", pa.int64(), nullable=False),
+        # CalMac's id is NOT stable (all ids were reissued on 23 November 2026); kept for reference only.
+        pa.field("sailing_id", pa.int64()),
         pa.field("route_code", pa.string(), nullable=False),
         pa.field("change_type", pa.string(), nullable=False),
         pa.field("observed_at", TS, nullable=False),
@@ -51,6 +52,8 @@ SAILING_SCHEMA = pa.schema(
         pa.field("rescheduled_departure_at", TS),
         pa.field("rescheduled_arrival_at", TS),
         pa.field("status", pa.string()),
+        # Stable identity: route | departure port | scheduled departure (UTC).
+        pa.field("sailing_key", pa.string()),
     ]
 )
 
@@ -77,8 +80,13 @@ _SAILING_FIELDS = (
 )
 
 
+def sailing_key(route_code: str, origin: str, departure: datetime) -> str:
+    return f"{route_code}|{origin}|{departure.isoformat()}"
+
+
 def _sailing_record(route_code: str, s: Sailing) -> dict:
     return {
+        "sailing_key": sailing_key(route_code, s.origin_port.name, s.departure_date_time),
         "sailing_id": s.id,
         "route_code": route_code,
         "sailing_date": s.sailing_date,
@@ -96,8 +104,8 @@ def _comparable(rec: dict) -> dict:
     return {k: (rec[k].isoformat() if hasattr(rec.get(k), "isoformat") else rec.get(k)) for k in _SAILING_FIELDS}
 
 
-def _from_state(sailing_id: str, saved: dict) -> dict:
-    out = {"sailing_id": int(sailing_id), "route_code": saved["route_code"]}
+def _from_state(key: str, saved: dict) -> dict:
+    out = {"sailing_key": key, "sailing_id": saved.get("calmac_id"), "route_code": saved["route_code"]}
     for k in _SAILING_FIELDS:
         v = saved.get(k)
         if v and k == "sailing_date":
@@ -153,8 +161,23 @@ def _sailing_changes(
         departure = prev.get("departure_at")
         if departure and datetime.fromisoformat(departure) > now:
             rows.append({**_from_state(sid, prev), "change_type": "removed", "observed_at": now})
-    new_state = {sid: {"route_code": rec["route_code"], **_comparable(rec)} for sid, rec in current.items()}
+    new_state = {
+        key: {"route_code": rec["route_code"], "calmac_id": rec["sailing_id"], **_comparable(rec)}
+        for key, rec in current.items()
+    }
     return rows, new_state
+
+
+def _migrate_state(last: dict[str, dict]) -> dict[str, dict]:
+    """Re-key state written before 23 November 2026 (keyed by CalMac id) by stable sailing key."""
+    out = {}
+    for k, v in last.items():
+        if "|" in k:
+            out[k] = v
+            continue
+        key = f"{v['route_code']}|{v['origin']}|{v['departure_at']}"
+        out[key] = {**v, "calmac_id": int(k)}
+    return out
 
 
 def run_collect(client, now: datetime, data_dir: Path, site_dir: Path) -> dict:
@@ -168,7 +191,8 @@ def run_collect(client, now: datetime, data_dir: Path, site_dir: Path) -> dict:
     current: dict[str, dict] = {}
     for code in codes:
         for s in client.fetch_sailings(code, today, end):
-            current[str(s.id)] = _sailing_record(code, s)
+            rec = _sailing_record(code, s)
+            current[rec["sailing_key"]] = rec
 
     # Notices: one row per new version.
     seen_path = state_dir / "notices_seen.json"
@@ -178,7 +202,7 @@ def run_collect(client, now: datetime, data_dir: Path, site_dir: Path) -> dict:
 
     # Sailings: new, changed, or removed before departure.
     last_path = state_dir / "sailings_last.json"
-    last = load_state(last_path, {})
+    last = _migrate_state(load_state(last_path, {}))
     sailing_rows, new_last = _sailing_changes(current, last, now)
     append_rows(data_dir / "sailings", sailing_rows, SAILING_SCHEMA, now)
 

@@ -60,17 +60,18 @@ class _Http:
             timeout=30, headers={"User-Agent": f"arran-ferry-predictor/{__version__} (+{REPO_URL}; {contact_email})"}
         )
 
-    def get_json(self, url: str, params: dict | None = None):
-        for attempt in (1, 2):
+    def get_json(self, url: str, params: dict | None = None, attempts: int = 3):
+        for attempt in range(1, attempts + 1):
+            last = attempt == attempts
             try:
                 r = self.client.get(url, params=params)
             except httpx.TransportError as e:
-                if attempt == 2:
+                if last:
                     raise ForecastError(f"network error: {e}") from e
-                time.sleep(self.retry_wait)
+                time.sleep(self.retry_wait * attempt)
                 continue
-            if (r.status_code == 429 or r.status_code >= 500) and attempt == 1:
-                time.sleep(self.retry_wait)
+            if (r.status_code == 429 or r.status_code >= 500) and not last:
+                time.sleep(self.retry_wait * attempt)
                 continue
             if r.status_code >= 400:
                 reason = ""

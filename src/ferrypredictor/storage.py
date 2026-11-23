@@ -54,7 +54,15 @@ def read_dataset(dataset_dir: Path, schema: pa.Schema) -> pa.Table:
     files = sorted(dataset_dir.rglob("*.parquet")) if dataset_dir.exists() else []
     if not files:
         return schema.empty_table()
-    return pa.concat_tables([pq.read_table(f).cast(schema) for f in files])
+    return pa.concat_tables([_conform(pq.read_table(f), schema) for f in files])
+
+
+def _conform(table: pa.Table, schema: pa.Schema) -> pa.Table:
+    """Fit an older part to the current schema: add missing columns as nulls, drop unknown ones."""
+    for field in schema:
+        if field.name not in table.column_names:
+            table = table.append_column(field.name, pa.nulls(table.num_rows, type=field.type))
+    return table.select(schema.names).cast(schema)
 
 
 def load_state(path: Path, default: Any) -> Any:

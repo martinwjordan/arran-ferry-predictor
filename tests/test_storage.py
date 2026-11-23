@@ -67,6 +67,14 @@ def test_read_dataset_when_empty_returns_schema(tmp_path):
     assert table.schema.names == SCHEMA.names
 
 
+def test_older_parts_missing_a_new_column_still_read(tmp_path):
+    old_schema = pa.schema([f for f in SCHEMA if f.name != "value"])
+    storage.append_rows(tmp_path, [{"id": "1", "at": NOV}], old_schema, NOV)
+    storage.append_rows(tmp_path, [row(2)], SCHEMA, NOV_LATER)
+    table = storage.read_dataset(tmp_path, SCHEMA)
+    assert table.column("value").to_pylist() == [None, 1]
+
+
 def test_state_round_trip_and_default(tmp_path):
     path = tmp_path / "state" / "thing.json"
     assert storage.load_state(path, {"a": 0}) == {"a": 0}

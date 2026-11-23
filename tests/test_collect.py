@@ -89,7 +89,7 @@ def test_future_sailing_vanishing_is_recorded_as_removed(dirs):
     client.sailings["301"].remove(s1810)
     assert run(client, dirs)["sailings"] == 1
     removed = [r for r in sailing_rows(dirs) if r["change_type"] == "removed"]
-    assert [r["sailing_id"] for r in removed] == [s1810.id]
+    assert [r["sailing_key"] for r in removed] == ["301|Troon|2026-11-23T18:10:00+00:00"]
 
 
 def test_departed_sailing_vanishing_writes_nothing(dirs):
@@ -108,7 +108,38 @@ def test_rescheduled_sailing_is_recorded_as_changed(dirs):
     client.sailings["003"][-1] = s
     assert run(client, dirs)["sailings"] == 1
     changed = [r for r in sailing_rows(dirs) if r["change_type"] == "changed"]
-    assert changed[0]["sailing_id"] == s.id
+    assert changed[0]["sailing_key"].startswith("003|")
+
+
+def test_reissued_calmac_ids_are_not_changes(dirs):
+    # Seen live on 23 November 2026: CalMac gave every sailing a new id between 12:36 and 16:02.
+    client = FakeClient()
+    run(client, dirs)
+    for code in ("003", "301"):
+        client.sailings[code] = [s.model_copy(update={"id": s.id + 46494}) for s in client.sailings[code]]
+    assert run(client, dirs)["sailings"] == 0
+
+
+def test_rows_carry_a_stable_sailing_key(dirs):
+    client = FakeClient()
+    run(client, dirs)
+    row = next(r for r in sailing_rows(dirs) if r["origin"] == "Troon" and r["departure_at"].hour == 18)
+    assert row["sailing_key"] == "301|Troon|2026-11-23T18:10:00+00:00"
+    assert row["sailing_id"] is not None
+
+
+def test_state_keyed_by_calmac_id_is_migrated(dirs):
+    import json as _json
+    client = FakeClient()
+    run(client, dirs)
+    state_path = dirs[0] / "state" / "sailings_last.json"
+    state = _json.loads(state_path.read_text())
+    # Rewrite the state in the old format: keyed by CalMac id, no key field.
+    old = {}
+    for key, v in state.items():
+        old[str(v["calmac_id"])] = {k: x for k, x in v.items() if k not in ("calmac_id",)}
+    state_path.write_text(_json.dumps(old))
+    assert run(client, dirs)["sailings"] == 0
 
 
 def test_route_status_change_writes_a_row(dirs):

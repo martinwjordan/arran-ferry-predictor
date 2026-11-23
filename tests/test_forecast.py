@@ -103,6 +103,13 @@ def test_missing_metadata_falls_back_to_fetch_time(api, tmp_path):
     assert ec[0]["lead_hours"] == pytest.approx(-50 / 60)
 
 
+def test_network_blip_is_retried(api, tmp_path):
+    api.get(forecast.MARINE_URL).mock(
+        side_effect=[httpx.ConnectTimeout("handshake timed out"), httpx.ConnectTimeout("again"), httpx.Response(200, json=marine_payload())]
+    )
+    assert run(tmp_path)["rows"]["marine"] == 30
+
+
 def test_failed_request_still_writes_the_rest_then_raises(api, tmp_path):
     api.get(forecast.MARINE_URL).mock(return_value=httpx.Response(429, json={"error": True, "reason": "Daily API request limit exceeded"}))
     with pytest.raises(forecast.ForecastError, match="marine"):
