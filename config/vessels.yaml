@@ -1,0 +1,13 @@
+# Vessels to track on AIS. Names as broadcast (case and "MV " prefix are ignored).
+# MMSIs are discovered automatically into data/state/vessels_mmsi.json.
+# Set mmsi here once confirmed; a configured MMSI is never overwritten by discovery.
+
+vessels:
+  - name: CALEDONIAN ISLES
+  - name: ALFRED
+  - name: GLEN SANNOX
+  - name: GLEN ROSA
+  - name: ISLE OF ARRAN
+  - name: HEBRIDES
+  - name: FINLAGGAN
+  - name: ISLE OF ISLAY

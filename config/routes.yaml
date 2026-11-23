@@ -1,0 +1,30 @@
+# Arran routes, ports, forecast points and the AIS listening area.
+# Port codes and coordinates come from CalMac's own feed (23 November 2026).
+
+routes:
+  - code: "003"
+    name: Ardrossan - Brodick
+    ports: [Ardrossan, Brodick]
+  - code: "301"
+    name: Troon - Brodick
+    ports: [Troon, Brodick]
+
+ports:
+  Ardrossan: { code: GBARD, lat: 55.6407, lon: -4.8224 }
+  Brodick: { code: GBBDI, lat: 55.5767, lon: -5.1372 }
+  Troon: { code: GBTRN, lat: 55.5453, lon: -4.6702 }
+
+# Points sampled from Open-Meteo for every forecast run.
+forecast_points:
+  ardrossan: { lat: 55.641, lon: -4.822 }
+  troon: { lat: 55.545, lon: -4.670 }
+  brodick: { lat: 55.577, lon: -5.137 }
+  mid_ardrossan: { lat: 55.61, lon: -4.98 }
+  mid_troon: { lat: 55.56, lon: -4.91 }
+
+# Firth of Clyde box for AIS: south-west corner, then north-east corner.
+ais_bbox:
+  lat_min: 55.45
+  lon_min: -5.25
+  lat_max: 55.75
+  lon_max: -4.55
