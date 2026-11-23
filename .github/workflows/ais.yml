@@ -2,7 +2,7 @@ name: ais
 
 on:
   schedule:
-    - cron: "10,30,50 * * * *"
+    - cron: "17,37,57 * * * *"
   workflow_dispatch:
     inputs:
       bbox:

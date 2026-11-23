@@ -5,9 +5,9 @@ import yaml
 
 WF = Path(__file__).resolve().parents[1] / ".github" / "workflows"
 SCHEDULES = {
-    "collect": "0,20,40 * * * *",
-    "ais": "10,30,50 * * * *",
-    "forecast": "50 0,6,12,18 * * *",
+    "collect": "7,27,47 * * * *",
+    "ais": "17,37,57 * * * *",
+    "forecast": "53 0,6,12,18 * * *",
 }
 
 
