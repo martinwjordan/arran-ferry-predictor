@@ -36,9 +36,9 @@ def test_job_runs_the_right_command_and_commits_to_data_branch(name):
     steps = load(name)["jobs"][name]["steps"]
     runs = [s.get("run", "") for s in steps]
     assert f"python -m ferrypredictor {name}" in runs
-    assert "scripts/checkout_data_branch.sh store" in runs
-    assert any(r.startswith("scripts/commit_with_retry.sh") for r in runs)
-    assert f"scripts/issue_on_repeated_failure.sh {name}.yml" in runs
+    assert "bash scripts/checkout_data_branch.sh store" in runs
+    assert any(r.startswith("bash scripts/commit_with_retry.sh") for r in runs)
+    assert f"bash scripts/issue_on_repeated_failure.sh {name}.yml" in runs
 
 
 @pytest.mark.parametrize("name", SCHEDULES)

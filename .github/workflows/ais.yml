@@ -30,7 +30,7 @@ jobs:
           cache: pip
       - run: pip install -e .
       - name: Check out the data branch
-        run: scripts/checkout_data_branch.sh store
+        run: bash scripts/checkout_data_branch.sh store
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Listen to AIS around Arran
@@ -39,9 +39,9 @@ jobs:
           AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
       - name: Commit data
         if: always()
-        run: 'scripts/commit_with_retry.sh "ais: $(date -u +%Y-%m-%dT%H:%MZ)" store'
+        run: 'bash scripts/commit_with_retry.sh "ais: $(date -u +%Y-%m-%dT%H:%MZ)" store'
       - name: Raise an issue after three failures in a row
         if: failure()
-        run: scripts/issue_on_repeated_failure.sh ais.yml
+        run: bash scripts/issue_on_repeated_failure.sh ais.yml
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
