@@ -4,6 +4,18 @@ The jobs have GitHub cron schedules, but GitHub had not fired a single scheduled
 
 So the jobs are started from outside, through GitHub's API, by a free timer service. The GitHub schedules stay in place: if both fire, the concurrency groups queue the second run, and a repeat run writes nothing new.
 
+## Live setup
+
+Set up on 23 November 2026, on cron-job.org (account: martinwjordan@gmail.com).
+
+| Job | Schedule (UTC) | Alert email after | First timer run |
+|---|---|---|---|
+| collect | `7,27,47 * * * *` | 3 failures in a row | 16:47, 23 Nov 2026 |
+| forecast | `53 */6 * * *` | 2 failures in a row | 18:53, 23 Nov 2026 (test run 18:09 succeeded) |
+
+- **Token:** fine-grained, `arran-ferry-predictor` only, Actions read and write. **Expires 22 November 2027.** Both timers stop on that date: generate a new token and paste it into each job's Authorization header before then.
+- cron-job.org also emails on recovery and if it disables a job for repeated failures.
+
 ## 1. Create a token (GitHub, signed in as martinwjordan)
 
 Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate new token.

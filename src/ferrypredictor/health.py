@@ -26,9 +26,11 @@ def update_health(site_dir: Path, job: str, now: datetime, ok: bool = True, deta
     if ok:
         entry["last_success"] = stamp
         entry["details"] = details or {}
+        # "error" means the latest run failed; keep the old message as history only.
+        entry.pop("error", None)
     else:
         entry["last_failure"] = stamp
-        entry["error"] = (details or {}).get("error")
+        entry["error"] = entry["last_error"] = (details or {}).get("error")
     entry["updated"] = stamp
     save_state(path, entry)
     return entry

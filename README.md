@@ -18,7 +18,7 @@ Scheduled GitHub Actions jobs:
 | `ais` | Paused | Listens to AIS ship positions around Arran for three minutes. Paused on 23 November 2026: aisstream.io has no receiver coverage of the Arran crossings. Re-enable from the Actions tab once a covering source exists. |
 | `forecast` | Four times a day | Logs wind and wave forecasts for the ports and mid-channel |
 
-Scheduling: GitHub has not been firing the cron schedules reliably for this repo, so the jobs are started by an outside timer. See [docs/scheduling.md](docs/scheduling.md).
+Scheduling: GitHub has not been firing the cron schedules reliably for this repo, so the jobs are started by an outside timer (cron-job.org, live since 23 November 2026; its token expires 22 November 2027). See [docs/scheduling.md](docs/scheduling.md).
 
 Collected data lives on the [`data` branch](../../tree/data), so the code history on `main` stays readable:
 

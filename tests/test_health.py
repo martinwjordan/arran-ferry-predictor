@@ -17,6 +17,17 @@ def test_success_then_failure_keeps_last_success(tmp_path):
     assert job["updated"] == "2026-11-23T12:20:00+00:00"
 
 
+def test_success_after_failure_clears_current_error(tmp_path):
+    T3 = datetime(2026, 11, 23, 12, 40, tzinfo=timezone.utc)
+    update_health(tmp_path, "forecast", T1, ok=False, details={"error": "TLS timeout"})
+    update_health(tmp_path, "forecast", T3, details={"rows": 5})
+    job = read_health(tmp_path, "forecast")
+    assert "error" not in job
+    assert job["last_error"] == "TLS timeout"
+    assert job["last_failure"] == "2026-11-23T12:00:00+00:00"
+    assert job["last_success"] == "2026-11-23T12:40:00+00:00"
+
+
 def test_each_job_has_its_own_file(tmp_path):
     update_health(tmp_path, "collect", T1)
     update_health(tmp_path, "ais", T2)
