@@ -106,11 +106,25 @@ def subscription(api_key: str, bbox: config.BBox) -> dict:
     }
 
 
-async def listen(api_key: str, bbox: config.BBox, seconds: float) -> list[dict]:
+async def listen(api_key: str, bbox: config.BBox, seconds: float, attempts: int = 3) -> list[dict]:
+    """Listen for `seconds`, retrying the connection (aisstream's handshake is sometimes slow)."""
+    last_error: AisError | None = None
+    for attempt in range(attempts):
+        try:
+            return await _listen_once(api_key, bbox, seconds)
+        except AisError as e:
+            if "aisstream:" in str(e):  # the server rejected us (e.g. bad key): retrying won't help
+                raise
+            last_error = e
+            await asyncio.sleep(5 * (attempt + 1))
+    raise last_error or AisError("aisstream connection failed")
+
+
+async def _listen_once(api_key: str, bbox: config.BBox, seconds: float) -> list[dict]:
     """Connect, subscribe within aisstream's three-second window, and collect messages for `seconds`."""
     messages: list[dict] = []
     try:
-        async with websockets.connect(STREAM_URL, open_timeout=15, close_timeout=5) as ws:
+        async with websockets.connect(STREAM_URL, open_timeout=30, close_timeout=5) as ws:
             await ws.send(json.dumps(subscription(api_key, bbox)))
             deadline = time.monotonic() + seconds
             while (remaining := deadline - time.monotonic()) > 0:
