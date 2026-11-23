@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # Check out the `data` branch into <dir>, or start it if it doesn't exist yet.
-# Sparse and shallow: jobs only read state files and health, so they never download the archive.
+# Sparse and shallow: state files and health only, plus any extra folders a job reads
+# (e.g. data/notices for the parser), so jobs never download the whole archive.
+# Usage: checkout_data_branch.sh <dir> [extra/folder ...]
 set -euo pipefail
 
-dir="${1:?usage: checkout_data_branch.sh <dir>}"
+dir="${1:?usage: checkout_data_branch.sh <dir> [extra/folder ...]}"
+shift
 url="https://x-access-token:${GITHUB_TOKEN:?GITHUB_TOKEN not set}@github.com/${GITHUB_REPOSITORY:?GITHUB_REPOSITORY not set}.git"
 
 if git ls-remote --exit-code --heads "$url" data >/dev/null 2>&1; then
   git clone --quiet --depth 1 --branch data --filter=blob:none --sparse "$url" "$dir"
-  git -C "$dir" sparse-checkout set data/state site
-  echo "Checked out the data branch (state and health only)."
+  git -C "$dir" sparse-checkout set data/state site "$@"
+  echo "Checked out the data branch (state, health${*:+ and $*})."
 else
   git init -q -b data "$dir"
   git -C "$dir" remote add origin "$url"

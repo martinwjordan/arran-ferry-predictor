@@ -56,3 +56,9 @@ def test_job_failure_exits_1_and_records_health(monkeypatch, capsys, tmp_path):
 def test_unknown_job_is_rejected():
     with pytest.raises(SystemExit):
         cli.main(["nope"])
+
+
+def test_parse_needs_no_secrets_and_copes_with_an_empty_store(tmp_path, capsys):
+    assert cli.main(["parse"]) == 0
+    out = capsys.readouterr().out
+    assert '"job": "parse"' in out and '"versions_parsed": 0' in out

@@ -15,6 +15,7 @@ Scheduled GitHub Actions jobs:
 | Job | Schedule | What it does |
 |---|---|---|
 | `collect` | Every 20 minutes | Logs CalMac route status, notices and the timetable for the next week |
+| `parse` | After each `collect` | Turns CalMac SAILING notices into per-sailing events (`cancelled`, `diverted`, `at_risk`, `at_risk_diversion`, `reinstated`, `review_at`) in `data/events/`; anything it can't resolve goes to `data/unparsed/` for review, never guessed |
 | `ais` | Paused | Listens to AIS ship positions around Arran for three minutes. Paused on 23 November 2026: aisstream.io has no receiver coverage of the Arran crossings. Re-enable from the Actions tab once a covering source exists. |
 | `forecast` | Four times a day | Logs wind and wave forecasts for the ports and mid-channel |
 | `backfill` | By hand, until complete | Fetches archived forecasts as issued 1 to 5 days ahead (GFS, ECMWF, UK Met Office; January 2024 to 23 November 2026, where each model's archive allows) into `data/forecast_archive/`, for training. Resumes where the last run stopped; progress in `site/health/backfill.json`. |

@@ -36,7 +36,7 @@ def test_job_runs_the_right_command_and_commits_to_data_branch(name):
     steps = load(name)["jobs"][name]["steps"]
     runs = [s.get("run", "") for s in steps]
     assert f"python -m ferrypredictor {name}" in runs
-    assert "bash scripts/checkout_data_branch.sh store" in runs
+    assert any(r.startswith("bash scripts/checkout_data_branch.sh store") for r in runs)
     assert any(r.startswith("bash scripts/commit_with_retry.sh") for r in runs)
     assert f"bash scripts/issue_on_repeated_failure.sh {name}.yml" in runs
 
@@ -57,3 +57,16 @@ def test_secrets_only_reach_the_steps_that_need_them(name):
 def test_schedules_are_offset_so_jobs_rarely_push_together():
     minutes = {name: set(SCHEDULES[name].split()[0].split(",")) for name in SCHEDULES}
     assert not minutes["collect"] & minutes["ais"]
+
+
+def test_collect_parses_notices_with_their_history_checked_out():
+    runs = [s.get("run", "") for s in load("collect")["jobs"]["collect"]["steps"]]
+    assert "bash scripts/checkout_data_branch.sh store data/notices data/sailings" in runs
+    assert runs.index("python -m ferrypredictor parse") == runs.index("python -m ferrypredictor collect") + 1
+
+
+def test_backfill_is_manual_only():
+    wf = load("backfill")
+    assert "schedule" not in wf["on"] and "workflow_dispatch" in wf["on"]
+    runs = [s.get("run", "") for s in wf["jobs"]["backfill"]["steps"]]
+    assert "python -m ferrypredictor backfill" in runs

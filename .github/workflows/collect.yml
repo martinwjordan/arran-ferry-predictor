@@ -30,13 +30,15 @@ jobs:
           cache: pip
       - run: pip install -e .
       - name: Check out the data branch
-        run: bash scripts/checkout_data_branch.sh store
+        run: bash scripts/checkout_data_branch.sh store data/notices data/sailings
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Collect CalMac status, notices and sailings
         run: python -m ferrypredictor collect
         env:
           CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+      - name: Parse notices into sailing events
+        run: python -m ferrypredictor parse
       - name: Commit data
         if: always()
         run: 'bash scripts/commit_with_retry.sh "collect: $(date -u +%Y-%m-%dT%H:%MZ)" store'
