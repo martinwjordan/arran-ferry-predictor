@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0f3b4c">
+<title>Arran ferries: the next five days (beta)</title>
+<style>
+  :root {
+    --bg: #f4f6f7; --card: #ffffff; --ink: #14232b; --muted: #5d6d75; --line: #dfe5e8;
+    --sea: #0f3b4c; --sea-2: #1b6178; --accent: #e9f2f5;
+    --ok: #2f7d4f; --warn: #a86400; --bad: #b3261e; --info: #315e9c;
+    --ok-bg: #e5f3ea; --warn-bg: #fdf0dc; --bad-bg: #fbe4e2; --info-bg: #e5edf8;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d171c; --card: #15232a; --ink: #e6eef1; --muted: #9fb1b9; --line: #26363e;
+      --sea: #0b2b37; --sea-2: #6fb3c9; --accent: #1b2d35;
+      --ok: #7cc89a; --warn: #f0b45c; --bad: #ff8f86; --info: #8fb4ee;
+      --ok-bg: #173226; --warn-bg: #3a2a12; --bad-bg: #3d1a18; --info-bg: #182a44;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--sea); color: #fff; padding: 18px 16px 14px; padding-top: max(18px, env(safe-area-inset-top)); }
+  header h1 { margin: 0; font-size: 1.35rem; letter-spacing: .01em; }
+  header p { margin: 4px 0 0; opacity: .85; font-size: .9rem; }
+  .pill { display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+          background: #ffd166; color: #3b2a00; border-radius: 999px; padding: 2px 8px; vertical-align: middle; margin-left: 6px; }
+  main { max-width: 760px; margin: 0 auto; padding: 12px 12px 40px; }
+  .notice { background: var(--warn-bg); color: var(--ink); border-radius: var(--radius); padding: 10px 14px; font-size: .9rem; margin-bottom: 12px; }
+  .notice a { color: inherit; font-weight: 600; }
+  .stale { background: var(--bad-bg); }
+  .routes { display: grid; gap: 10px; grid-template-columns: 1fr; margin-bottom: 14px; }
+  @media (min-width: 640px) { .routes { grid-template-columns: 1fr 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+  .card h2 { font-size: 1rem; margin: 0 0 6px; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .chip { font-size: .75rem; font-weight: 700; border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+  .s-NORMAL { background: var(--ok-bg); color: var(--ok); }
+  .s-BE_AWARE { background: var(--info-bg); color: var(--info); }
+  .s-DISRUPTIONS { background: var(--warn-bg); color: var(--warn); }
+  .s-ALL_SAILINGS_CANCELLED { background: var(--bad-bg); color: var(--bad); }
+  details { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 6px; }
+  summary { cursor: pointer; font-size: .9rem; font-weight: 600; }
+  details p { white-space: pre-line; font-size: .88rem; color: var(--muted); margin: 6px 0 2px; }
+  .tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px; scrollbar-width: none; }
+  .tabs button { flex: 0 0 auto; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+                 border-radius: 999px; padding: 8px 14px; font: inherit; font-size: .9rem; cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: var(--sea-2); border-color: var(--sea-2); color: #fff; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { .tabs button[aria-selected="true"] { color: #0d171c; } }
+  .route-block { margin-bottom: 16px; }
+  .route-block h3 { font-size: .95rem; margin: 6px 4px 8px; color: var(--muted); font-weight: 600; }
+  .sailing { display: grid; grid-template-columns: 74px 1fr auto; gap: 4px 12px; align-items: center;
+             background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 6px; }
+  .sailing.past { opacity: .5; }
+  .time { font-weight: 700; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+  .time small { display: block; font-weight: 400; font-size: .75rem; color: var(--muted); }
+  .dir { font-size: .92rem; }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+  .b { font-size: .72rem; font-weight: 700; border-radius: 6px; padding: 2px 6px; }
+  .b-cancelled, .b-removed { background: var(--bad-bg); color: var(--bad); }
+  .b-diverted, .b-at_risk_diversion { background: var(--warn-bg); color: var(--warn); }
+  .b-at_risk { background: var(--info-bg); color: var(--info); }
+  .b-reinstated { background: var(--ok-bg); color: var(--ok); }
+  .wx { text-align: right; font-size: .85rem; line-height: 1.3; font-variant-numeric: tabular-nums; }
+  .wind { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+  .arrow { display: inline-block; width: 14px; height: 14px; }
+  .g1 { color: var(--ink); } .g2 { color: var(--warn); } .g3 { color: var(--bad); }
+  .waves { color: var(--muted); }
+  .empty { color: var(--muted); font-size: .9rem; padding: 8px 4px; }
+  .legend { font-size: .8rem; color: var(--muted); margin: 4px 4px 14px; }
+  footer { font-size: .8rem; color: var(--muted); margin-top: 20px; line-height: 1.6; }
+  footer a { color: inherit; }
+  .sr { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Arran ferries <span class="pill">Beta</span></h1>
+  <p>Every sailing for the next five days, with CalMac's latest word and the forecast mid-crossing.</p>
+</header>
+<main>
+  <div class="notice">Unofficial and still learning. Always check <a href="https://www.calmac.co.uk/en-gb/service-status/" rel="noopener">CalMac's service status</a> before you travel.</div>
+  <div id="stale" class="notice stale" hidden></div>
+  <section class="routes" id="routes" aria-label="Route status"></section>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Day"></nav>
+  <section id="day" aria-live="polite"></section>
+  <p class="legend">Wind is the strongest forecast mid-crossing during the sailing, in knots, with the direction it blows from. Gusts are coloured at 30 and 40 knots as a guide only: this page does not predict cancellations yet.</p>
+  <footer id="footer"></footer>
+</main>
+<script>
+(() => {
+  const TZ = "Europe/London";
+  const STATUS = { NORMAL: "Normal", BE_AWARE: "Be aware", DISRUPTIONS: "Disruptions", ALL_SAILINGS_CANCELLED: "All sailings cancelled" };
+  const BADGE = { cancelled: "Cancelled", diverted: "Diverted via Troon", at_risk_diversion: "Diversion risk",
+                  at_risk: "At risk", reinstated: "Reinstated", removed: "Not in CalMac timetable" };
+  const MODEL = { ukmo_uk_deterministic_2km: "Met Office 2 km", ecmwf_ifs: "ECMWF" };
+  const POINTS = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+  let data = null, selected = null;
+
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v === undefined || v === null || v === false) continue;
+      if (k === "class") n.className = v; else if (k === "text") n.textContent = v; else n.setAttribute(k, v === true ? "" : v);
+    }
+    for (const k of kids.flat()) if (k !== null && k !== undefined) n.append(k.nodeType ? k : document.createTextNode(k));
+    return n;
+  };
+  const ukTime = iso => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+  const ukDay = iso => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" }).format(new Date(iso));
+  const ago = iso => {
+    const m = Math.round((Date.now() - new Date(iso)) / 60000);
+    return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`;
+  };
+  const compass = d => POINTS[Math.round(((d % 360) + 360) % 360 / 22.5) % 16];
+
+  function arrow(deg) {
+    // Points the way the wind is blowing to (it comes from `deg`).
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 14 14"); svg.setAttribute("class", "arrow"); svg.setAttribute("aria-hidden", "true");
+    svg.innerHTML = `<g transform="rotate(${(deg + 180) % 360} 7 7)"><path d="M7 1 L11 9 L7 7 L3 9 Z" fill="currentColor"/></g>`;
+    return svg;
+  }
+
+  function routes() {
+    const box = document.getElementById("routes"); box.replaceChildren();
+    for (const r of data.routes) {
+      const card = el("article", { class: "card" },
+        el("h2", {}, r.name, el("span", { class: `chip s-${r.status || "NORMAL"}`, text: STATUS[r.status] || "Unknown" })));
+      if (!r.notices.length) card.append(el("div", { class: "empty", text: "No sailing notices from CalMac." }));
+      for (const n of r.notices) {
+        card.append(el("details", {},
+          el("summary", {}, `${n.title}${n.updated ? ` · updated ${ukTime(n.updated)}` : ""}`),
+          el("p", { text: n.text })));
+      }
+      box.append(card);
+    }
+  }
+
+  function tabs() {
+    const nav = document.getElementById("tabs"); nav.replaceChildren();
+    data.days.forEach((d, i) => {
+      const label = i === 0 ? "Today" : i === 1 ? "Tomorrow" : ukDay(d.date + "T12:00:00Z");
+      const b = el("button", { role: "tab", "aria-selected": String(i === selected), text: label });
+      b.addEventListener("click", () => { selected = i; tabs(); day(); });
+      nav.append(b);
+    });
+  }
+
+  function sailing(s) {
+    const badges = el("div", { class: "badges" });
+    const kinds = [...s.calmac]; if (s.removed && !kinds.includes("cancelled")) kinds.unshift("removed");
+    for (const k of kinds) {
+      let text = BADGE[k] || k;
+      if (k === "diverted") text = s.from === "Brodick" ? "Diverted to Troon" : "Sails from Troon";
+      if (k === "at_risk_diversion") text = s.from === "Brodick" ? "May divert to Troon" : "May sail from Troon";
+      badges.append(el("span", { class: `b b-${k}`, text }));
+    }
+    const wx = el("div", { class: "wx" });
+    if (s.wind) {
+      const g = s.wind.gust_kn ?? s.wind.speed_kn;
+      const cls = g >= 40 ? "g3" : g >= 30 ? "g2" : "g1";
+      const dir = s.wind.dir_deg != null ? compass(s.wind.dir_deg) : "";
+      wx.append(el("div", { class: `wind ${cls}`, title: `${MODEL[s.wind.model] || s.wind.model} forecast` },
+        s.wind.dir_deg != null ? arrow(s.wind.dir_deg) : null,
+        `${dir} ${s.wind.speed_kn}${s.wind.gust_kn != null ? `, gusts ${s.wind.gust_kn}` : ""} kn`));
+    } else {
+      wx.append(el("div", { class: "waves", text: s.departed ? "" : "No forecast yet" }));
+    }
+    if (s.waves) wx.append(el("div", { class: "waves", text: `Waves ${Number(s.waves.height_m).toFixed(1)} m` }));
+    return el("div", { class: `sailing${s.departed ? " past" : ""}` },
+      el("div", { class: "time" }, s.depart, el("small", { text: s.arrive ? `arr ${s.arrive}` : "" })),
+      el("div", {}, el("div", { class: "dir", text: `${s.from} → ${s.to}` }), badges),
+      wx);
+  }
+
+  function day() {
+    const box = document.getElementById("day"); box.replaceChildren();
+    const d = data.days[selected]; if (!d) return;
+    box.append(el("h2", { class: "sr", text: d.label }));
+    for (const r of data.routes) {
+      const list = d.sailings.filter(s => s.route === r.code);
+      const block = el("div", { class: "route-block" }, el("h3", { text: r.name }));
+      if (!list.length) block.append(el("div", { class: "empty", text: "No sailings in CalMac's published timetable for this day." }));
+      list.forEach(s => block.append(sailing(s)));
+      box.append(block);
+    }
+  }
+
+  function footer() {
+    const h = data.health || {};
+    const line = (name, label) => h[name] && h[name].last_success ? `${label} ${ago(h[name].last_success)}` : null;
+    const bits = [line("collect", "CalMac checked"), line("forecast", "forecast fetched")].filter(Boolean).join(" · ");
+    const f = document.getElementById("footer");
+    f.replaceChildren(
+      el("div", { text: `Page data built ${ukTime(data.generated_at)}${bits ? " · " + bits : ""}.` }),
+      el("div", {}, "Weather data by ", el("a", { href: "https://open-meteo.com/", rel: "noopener", text: "Open-Meteo" }),
+         " (CC BY 4.0), from the UK Met Office and ECMWF models. Sailing information from CalMac. Not affiliated with CalMac."),
+      el("div", {}, "A community project: ", el("a", { href: "https://github.com/martinwjordan/arran-ferry-predictor", rel: "noopener", text: "source and method on GitHub" }), "."));
+    const stale = document.getElementById("stale");
+    const last = h.collect && h.collect.last_success;
+    const mins = last ? (Date.now() - new Date(last)) / 60000 : Infinity;
+    stale.hidden = mins <= 60;
+    stale.textContent = last ? `CalMac data last updated ${ago(last)}. It may be out of date.` : "No CalMac data yet.";
+  }
+
+  async function load() {
+    try {
+      const r = await fetch(`sailings.json?t=${Date.now()}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(r.status);
+      data = await r.json();
+      if (selected === null || selected >= data.days.length) {
+        // Open on the first day that still has a sailing to come.
+        const next = data.days.findIndex(d => d.sailings.some(s => !s.departed));
+        selected = next < 0 ? 0 : next;
+      }
+      routes(); tabs(); day(); footer();
+    } catch (e) {
+      const stale = document.getElementById("stale");
+      stale.hidden = false; stale.textContent = "Couldn't load the latest data. Showing what was loaded before, if anything.";
+    }
+  }
+  load();
+  setInterval(load, 5 * 60 * 1000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+name: publish
+
+# Rebuild the phone page after every collect or forecast run, and on demand.
+on:
+  workflow_run:
+    workflows: [collect, forecast]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: publish
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      FERRY_CONFIG_DIR: ${{ github.workspace }}/config
+      FERRY_DATA_DIR: ${{ github.workspace }}/store/data
+      FERRY_SITE_DIR: ${{ github.workspace }}/store/site
+      FERRY_PUBLISH_DIR: ${{ github.workspace }}/public
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e .
+      - name: Check out the data the page needs
+        run: |
+          this_month=$(date -u +%Y-%m)
+          last_month=$(date -u -d "$(date -u +%Y-%m-01) -1 month" +%Y-%m)
+          bash scripts/checkout_data_branch.sh store data/notices data/sailings data/events data/route_status \
+            "data/forecasts/$this_month" "data/forecasts/$last_month"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build the page
+        run: python -m ferrypredictor site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - id: deploy
+        uses: actions/deploy-pages@v4

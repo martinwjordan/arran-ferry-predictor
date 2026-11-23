@@ -18,6 +18,7 @@ Scheduled GitHub Actions jobs:
 | `parse` | After each `collect` | Turns CalMac SAILING notices into per-sailing events (`cancelled`, `diverted`, `at_risk`, `at_risk_diversion`, `reinstated`, `review_at`) in `data/events/`; anything it can't resolve goes to `data/unparsed/` for review, never guessed |
 | `ais` | Paused | Listens to AIS ship positions around Arran for three minutes. Paused on 23 November 2026: aisstream.io has no receiver coverage of the Arran crossings. Re-enable from the Actions tab once a covering source exists. |
 | `forecast` | Four times a day | Logs wind and wave forecasts for the ports and mid-channel |
+| `publish` | After each `collect` and `forecast` | Rebuilds the phone page (`web/index.html` plus `sailings.json`) and deploys it to GitHub Pages: every sailing for the next five days, CalMac's word on it, and the forecast wind and waves mid-crossing. No probabilities until the model exists. |
 | `backfill` | By hand, until complete | Fetches archived forecasts as issued 1 to 5 days ahead (GFS, ECMWF, UK Met Office; January 2024 to 23 November 2026, where each model's archive allows) into `data/forecast_archive/`, for training. Resumes where the last run stopped; progress in `site/health/backfill.json`. |
 
 Scheduling: GitHub has not been firing the cron schedules reliably for this repo, so the jobs are started by an outside timer (cron-job.org, live since 23 November 2026; its token expires 22 November 2027). See [docs/scheduling.md](docs/scheduling.md).
