@@ -128,7 +128,23 @@ async def listen(api_key: str, bbox: config.BBox, seconds: float) -> list[dict]:
     return messages
 
 
-def run_ais(api_key: str, now: datetime, data_dir: Path, site_dir: Path, seconds: float = 180, listen_fn=listen) -> dict:
+def bbox_override(text: str | None) -> config.BBox | None:
+    """'lat_min,lon_min,lat_max,lon_max' from FERRY_AIS_BBOX, for one-off coverage checks."""
+    if not text:
+        return None
+    a, b, c, d = (float(x) for x in text.split(","))
+    return config.BBox(a, b, c, d)
+
+
+def run_ais(
+    api_key: str,
+    now: datetime,
+    data_dir: Path,
+    site_dir: Path,
+    seconds: float = 180,
+    listen_fn=listen,
+    bbox: config.BBox | None = None,
+) -> dict:
     data_dir, site_dir = Path(data_dir), Path(site_dir)
     state_path = data_dir / "state" / "vessels_mmsi.json"
     vessels = config.load_vessels()
@@ -137,7 +153,7 @@ def run_ais(api_key: str, now: datetime, data_dir: Path, site_dir: Path, seconds
     known = {mmsi: name for name, mmsi in {**state, **configured}.items()}
     tracked = {v.name for v in vessels}
 
-    messages = asyncio.run(listen_fn(api_key, config.load_bbox(), seconds))
+    messages = asyncio.run(listen_fn(api_key, bbox or config.load_bbox(), seconds))
     records = [r for m in messages if (r := parse_message(m, tracked, known, now))]
 
     append_rows(data_dir / "ais", records, AIS_SCHEMA, now)
@@ -146,6 +162,18 @@ def run_ais(api_key: str, now: datetime, data_dir: Path, site_dir: Path, seconds
         save_state(state_path, new_state)
 
     per_vessel = dict(sorted(Counter(r["name"] for r in records).items()))
-    summary = {"messages": len(messages), "records": len(records), "vessels": per_vessel}
+    others = Counter(
+        normalise_vessel_name((m.get("MetaData") or {}).get("ShipName")) or str((m.get("MetaData") or {}).get("MMSI"))
+        for m in messages
+    )
+    summary = {
+        "messages": len(messages),
+        "records": len(records),
+        "vessels": per_vessel,
+        # Coverage diagnostics: what else the stream delivered in the box.
+        "message_types": dict(Counter(m.get("MessageType", "?") for m in messages)),
+        "distinct_ships": len(others),
+        "top_ships": dict(others.most_common(8)),
+    }
     update_health(site_dir, "ais", now, details=summary)
     return summary

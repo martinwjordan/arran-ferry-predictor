@@ -27,9 +27,11 @@ def _collect(env: dict, now: datetime) -> dict:
 
 
 def _ais(env: dict, now: datetime) -> dict:
-    from .ais import run_ais
+    from .ais import bbox_override, run_ais
 
-    return run_ais(env["AISSTREAM_API_KEY"], now, DATA_DIR, SITE_DIR)
+    seconds = float(os.environ.get("FERRY_AIS_SECONDS") or 180)
+    bbox = bbox_override(os.environ.get("FERRY_AIS_BBOX"))
+    return run_ais(env["AISSTREAM_API_KEY"], now, DATA_DIR, SITE_DIR, seconds=seconds, bbox=bbox)
 
 
 def _forecast(env: dict, now: datetime) -> dict:

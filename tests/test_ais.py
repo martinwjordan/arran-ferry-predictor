@@ -95,13 +95,22 @@ def test_run_ais_writes_records_state_and_health(tmp_path):
         return [position(CALE, "CALEDONIAN ISLES"), position(999, "OTHER"), position(ALFR, "ALFRED", lat=55.55, lon=-4.68, sog=0.1, nav=5)]
 
     summary = ais.run_ais("KEY", NOW, data_dir, site_dir, seconds=1, listen_fn=fake_listen)
-    assert summary == {"messages": 3, "records": 2, "vessels": {"ALFRED": 1, "CALEDONIAN ISLES": 1}}
+    assert summary["messages"] == 3
+    assert summary["records"] == 2
+    assert summary["vessels"] == {"ALFRED": 1, "CALEDONIAN ISLES": 1}
+    assert summary["message_types"] == {"PositionReport": 3}
+    assert summary["distinct_ships"] == 3
     rows = storage.read_dataset(data_dir / "ais", ais.AIS_SCHEMA).to_pylist()
     assert {r["name"] for r in rows} == {"CALEDONIAN ISLES", "ALFRED"}
     state = json.loads((data_dir / "state" / "vessels_mmsi.json").read_text())
     assert state == {"ALFRED": ALFR, "CALEDONIAN ISLES": CALE}
     health = json.loads((site_dir / "health" / "ais.json").read_text())
     assert health["details"]["records"] == 2
+
+
+def test_bbox_override():
+    assert ais.bbox_override(None) is None
+    assert ais.bbox_override("49,-11,61,2") == ais.config.BBox(49.0, -11.0, 61.0, 2.0)
 
 
 def test_run_ais_raises_on_stream_error(tmp_path):

@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: "10,30,50 * * * *"
   workflow_dispatch:
+    inputs:
+      bbox:
+        description: "Optional coverage check: lat_min,lon_min,lat_max,lon_max (blank = Arran box)"
+        required: false
+        default: ""
+      seconds:
+        description: "Listen time in seconds"
+        required: false
+        default: "180"
 
 concurrency:
   group: ais
@@ -37,6 +46,8 @@ jobs:
         run: python -m ferrypredictor ais
         env:
           AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
+          FERRY_AIS_BBOX: ${{ inputs.bbox }}
+          FERRY_AIS_SECONDS: ${{ inputs.seconds }}
       - name: Commit data
         if: always()
         run: 'bash scripts/commit_with_retry.sh "ais: $(date -u +%Y-%m-%dT%H:%MZ)" store'
