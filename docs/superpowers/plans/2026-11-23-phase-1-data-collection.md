@@ -220,3 +220,16 @@ pytest
 ## Task 11: One-week review
 
 After seven days of logging: AIS coverage (share of timetabled crossings with at least one mid-channel fix), any CalMac errors, repo size growth, and the notices collected so far. Findings feed the Phase 2 plan (parser, crossing checks, baseline predictions, page and Home Assistant).
+
+## Build notes (23 November 2026)
+
+Changes made during the build, with reasons:
+
+- **Write-once part files, not monthly files.** `data/<dataset>/YYYY-MM/<timestamp>.parquet`, one per run. Rewriting a growing monthly file every 20 minutes would make git store a new copy each time (gigabytes a year).
+- **Data on a `data` branch.** Jobs check out `main` for code and a sparse, shallow copy of `data` (state and health only) for writing. Keeps `main` history readable and stops data commits triggering tests.
+- **One health file per job** (`site/health/<job>.json`) so jobs finishing together never edit the same file.
+- **Fixtures captured live** from CalMac at 12:26 on 23 November rather than copied from the handover pack. They include notice `id` and `detail` in one response. The 301 notice had been reworded at 12:18 (same outcomes), a real example of a notice version change.
+- **Forecast timing from evidence.** Open-Meteo's metadata shows the ECMWF IFS 00Z run available at 06:35 UTC (about 6.6 hours after initialisation, 6-hourly updates), so `forecast` runs at 00:50, 06:50, 12:50 and 18:50 UTC. Run times come from `/data/<model>/static/meta.json`.
+- **UK Met Office 2 km added.** Open-Meteo carries `ukmo_uk_deterministic_2km` (hourly updates, about 49 hours ahead), logged alongside ECMWF.
+- **Open-Meteo rate limits.** The free tier is limited per IP and returned 429 "Daily API request limit exceeded" from this build environment's shared address. GitHub runners use different addresses; the job retries once, writes whatever succeeded, and fails loudly otherwise. If 429s persist on runners, the fallback is an Open-Meteo API key.
+- **Live checks passed** for the CalMac client, collect job (13 notices and 120 sailings on the first run, nothing on an identical second run) and forecast job (660 ECMWF rows, 245 UK Met Office rows, 660 marine rows). AIS is checked on the first live run, as the key lives only in GitHub.

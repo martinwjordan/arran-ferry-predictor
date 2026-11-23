@@ -1,4 +1,7 @@
-"""site/health.json: last success (and failure) per job, read by the page and Home Assistant."""
+"""site/health/<job>.json: last success (and failure) per job, read by the page and Home Assistant.
+
+One file per job, so jobs finishing at the same time never edit the same file.
+"""
 
 from __future__ import annotations
 
@@ -8,10 +11,17 @@ from pathlib import Path
 from .storage import load_state, save_state
 
 
+def health_path(site_dir: Path, job: str) -> Path:
+    return Path(site_dir) / "health" / f"{job}.json"
+
+
+def read_health(site_dir: Path, job: str) -> dict:
+    return load_state(health_path(site_dir, job), {})
+
+
 def update_health(site_dir: Path, job: str, now: datetime, ok: bool = True, details: dict | None = None) -> dict:
-    path = Path(site_dir) / "health.json"
-    health = load_state(path, {"jobs": {}})
-    entry = health["jobs"].setdefault(job, {})
+    path = health_path(site_dir, job)
+    entry = load_state(path, {"job": job})
     stamp = now.isoformat(timespec="seconds")
     if ok:
         entry["last_success"] = stamp
@@ -19,6 +29,6 @@ def update_health(site_dir: Path, job: str, now: datetime, ok: bool = True, deta
     else:
         entry["last_failure"] = stamp
         entry["error"] = (details or {}).get("error")
-    health["updated"] = stamp
-    save_state(path, health)
-    return health
+    entry["updated"] = stamp
+    save_state(path, entry)
+    return entry

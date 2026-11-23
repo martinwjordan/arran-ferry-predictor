@@ -100,8 +100,8 @@ def test_run_ais_writes_records_state_and_health(tmp_path):
     assert {r["name"] for r in rows} == {"CALEDONIAN ISLES", "ALFRED"}
     state = json.loads((data_dir / "state" / "vessels_mmsi.json").read_text())
     assert state == {"ALFRED": ALFR, "CALEDONIAN ISLES": CALE}
-    health = json.loads((site_dir / "health.json").read_text())
-    assert health["jobs"]["ais"]["details"]["records"] == 2
+    health = json.loads((site_dir / "health" / "ais.json").read_text())
+    assert health["details"]["records"] == 2
 
 
 def test_run_ais_raises_on_stream_error(tmp_path):

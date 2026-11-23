@@ -18,7 +18,13 @@ Scheduled GitHub Actions jobs:
 | `ais` | Every 20 minutes | Listens to AIS ship positions around Arran for three minutes |
 | `forecast` | Four times a day | Logs wind and wave forecasts for the ports and mid-channel |
 
-Data is stored as monthly Parquet files under `data/`. Job health is in `site/health.json`.
+Collected data lives on the [`data` branch](../../tree/data), so the code history on `main` stays readable:
+
+- `data/<dataset>/YYYY-MM/*.parquet`: one write-once Parquet file per run (`notices`, `sailings`, `route_status`, `ais`, `forecasts`).
+- `data/state/`: small JSON files the jobs use to spot changes and discovered vessel MMSIs.
+- `site/health/<job>.json`: last success or failure for each job.
+
+If a job fails three runs in a row, it opens a GitHub issue labelled `pipeline-failure`.
 
 The design is in [`docs/superpowers/specs/`](docs/superpowers/specs/) and the build plans in [`docs/superpowers/plans/`](docs/superpowers/plans/).
 

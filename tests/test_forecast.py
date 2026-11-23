@@ -109,5 +109,5 @@ def test_failed_request_still_writes_the_rest_then_raises(api, tmp_path):
         run(tmp_path)
     models = {x["model"] for x in rows(tmp_path)}
     assert models == {"ecmwf_ifs", "ukmo_uk_deterministic_2km"}
-    health = json.loads((tmp_path / "site" / "health.json").read_text())
-    assert "marine" in health["jobs"]["forecast"]["error"]
+    health = json.loads((tmp_path / "site" / "health" / "forecast.json").read_text())
+    assert "marine" in health["error"]

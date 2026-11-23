@@ -61,8 +61,8 @@ def test_first_run_writes_everything(dirs):
     weather = [n for n in notices(dirs) if n["notice_type"] == "SAILING" and n["route_code"] == "301"]
     assert weather[0]["reason"] == "weather"
     assert "18:10 departing Troon" in weather[0]["detail"]
-    health = json.loads((dirs[1] / "health.json").read_text())
-    assert health["jobs"]["collect"]["details"]["notices"] == 13
+    health = json.loads((dirs[1] / "health" / "collect.json").read_text())
+    assert health["details"]["notices"] == 13
 
 
 def test_identical_second_run_writes_nothing(dirs):

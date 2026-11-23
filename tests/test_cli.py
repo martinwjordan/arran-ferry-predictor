@@ -50,7 +50,7 @@ def test_job_failure_exits_1_and_records_health(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(cli, "_collect", boom)
     assert cli.main(["collect"]) == 1
     assert "HTTP 503" in capsys.readouterr().err
-    assert "HTTP 503" in (tmp_path / "site" / "health.json").read_text()
+    assert "HTTP 503" in (tmp_path / "site" / "health" / "collect.json").read_text()
 
 
 def test_unknown_job_is_rejected():

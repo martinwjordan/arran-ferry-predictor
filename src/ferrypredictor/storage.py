@@ -1,10 +1,15 @@
-"""Append-only monthly Parquet datasets and small JSON state files, all written atomically."""
+"""Append-only Parquet datasets and small JSON state files, all written atomically.
+
+Each write creates a new, never-modified part file: <dataset>/YYYY-MM/YYYYMMDDTHHMMSSZ.parquet.
+Rewriting a growing file on every run would make git store a fresh copy each time; immutable
+parts keep repository growth equal to the data actually collected.
+"""
 
 from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -12,8 +17,14 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 
-def month_file(dataset_dir: Path, when: datetime) -> Path:
-    return Path(dataset_dir) / f"{when:%Y-%m}.parquet"
+def part_path(dataset_dir: Path, when: datetime) -> Path:
+    when = when.astimezone(timezone.utc)
+    base = Path(dataset_dir) / f"{when:%Y-%m}" / f"{when:%Y%m%dT%H%M%SZ}"
+    path, n = base.with_suffix(".parquet"), 1
+    while path.exists():
+        path = base.with_name(f"{base.name}-{n}.parquet")
+        n += 1
+    return path
 
 
 def _check_required(rows: list[dict], schema: pa.Schema) -> None:
@@ -25,25 +36,22 @@ def _check_required(rows: list[dict], schema: pa.Schema) -> None:
 
 
 def append_rows(dataset_dir: Path, rows: list[dict], schema: pa.Schema, when: datetime) -> Path | None:
-    """Append rows to the month file for `when`. Returns the file path, or None if there was nothing to write."""
+    """Write rows as a new part file. Returns its path, or None if there was nothing to write."""
     if not rows:
         return None
     _check_required(rows, schema)
-    new = pa.Table.from_pylist(rows, schema=schema)
-    dataset_dir = Path(dataset_dir)
-    dataset_dir.mkdir(parents=True, exist_ok=True)
-    path = month_file(dataset_dir, when)
-    if path.exists():
-        existing = pq.read_table(path).cast(schema)
-        new = pa.concat_tables([existing, new])
+    table = pa.Table.from_pylist(rows, schema=schema)
+    path = part_path(dataset_dir, when)
+    path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
-    pq.write_table(new, tmp, compression="zstd")
+    pq.write_table(table, tmp, compression="zstd")
     os.replace(tmp, path)
     return path
 
 
 def read_dataset(dataset_dir: Path, schema: pa.Schema) -> pa.Table:
-    files = sorted(Path(dataset_dir).glob("*.parquet")) if Path(dataset_dir).exists() else []
+    dataset_dir = Path(dataset_dir)
+    files = sorted(dataset_dir.rglob("*.parquet")) if dataset_dir.exists() else []
     if not files:
         return schema.empty_table()
     return pa.concat_tables([pq.read_table(f).cast(schema) for f in files])
@@ -58,10 +66,12 @@ def load_state(path: Path, default: Any) -> Any:
 
 
 def save_state(path: Path, obj: Any) -> None:
+    """Write JSON atomically; skip the write when the content is unchanged (keeps git quiet)."""
     path = Path(path)
+    text = json.dumps(obj, indent=1, sort_keys=True, default=str, ensure_ascii=False) + "\n"
+    if path.exists() and path.read_text(encoding="utf-8") == text:
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(obj, f, indent=1, sort_keys=True, default=str, ensure_ascii=False)
-        f.write("\n")
+    tmp.write_text(text, encoding="utf-8")
     os.replace(tmp, path)
