@@ -7,12 +7,11 @@
   },
   "run_times": {
    "ecmwf_ifs": "2026-11-23T06:00:00+00:00",
-   "ukmo_uk_deterministic_2km": "2026-11-23T13:00:00+00:00"
+   "ukmo_uk_deterministic_2km": "2026-11-23T14:00:00+00:00"
   }
  },
- "error": "ForecastError: ecmwf_ifs: network error: _ssl.c:994: The handshake operation timed out",
  "job": "forecast",
  "last_failure": "2026-11-23T16:02:33+00:00",
- "last_success": "2026-11-23T18:09:45+00:00",
- "updated": "2026-11-23T18:09:45+00:00"
+ "last_success": "2026-11-23T18:53:32+00:00",
+ "updated": "2026-11-23T18:53:32+00:00"
 }
