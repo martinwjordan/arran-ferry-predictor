@@ -91,15 +91,32 @@ def fit(df: pd.DataFrame, labels: pd.DataFrame, as_of: pd.Timestamp, history_sta
     return Bundle(data)
 
 
+def load_labels(paths: list[Path]) -> pd.DataFrame:
+    """FOI labels and live labels together. Live labels keep their newest version per sailing, and where
+    both sources cover a sailing, the FOI record (CalMac's own) wins."""
+    from .foi import LABEL_SCHEMA
+
+    frames = []
+    for path in paths:
+        df = pd.read_parquet(path)
+        if "labeller_version" in df.columns:
+            df = df.sort_values(["labeller_version", "labelled_at"]).drop_duplicates("sailing_key", keep="last")
+        frames.append(df[LABEL_SCHEMA.names])
+    out = pd.concat(frames, ignore_index=True)
+    out["_live"] = out["source"] == "live"
+    out = out.sort_values("_live", kind="stable").drop_duplicates("sailing_key", keep="first").drop(columns="_live")
+    return out.sort_values("departure_at", kind="stable").reset_index(drop=True)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("labels", type=Path)
+    ap.add_argument("labels", type=Path, nargs="+", help="FOI label file(s) and/or the live labels folder (data/labels_live)")
     ap.add_argument("archive", type=Path)
     ap.add_argument("out", type=Path)
     ap.add_argument("--as-of", default=None, help="train on sailings before this date (default: day after the last label)")
     args = ap.parse_args(argv)
-    df = B.load(args.labels, args.archive)
-    labels = pd.read_parquet(args.labels)
+    labels = load_labels(args.labels)
+    df = B.load(labels, args.archive)
     as_of = pd.Timestamp(args.as_of) if args.as_of else df["sailing_date"].max() + pd.Timedelta(days=1)
     bundle = fit(df, labels, as_of)
     bundle.save(args.out)

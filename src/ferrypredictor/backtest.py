@@ -36,8 +36,8 @@ CHOSEN = "stacked"
 HISTORY_START = "2024-05-01"
 
 
-def load(labels_path: Path, archive_dir: Path) -> pd.DataFrame:
-    labels = pd.read_parquet(labels_path)
+def load(labels_path: Path | pd.DataFrame, archive_dir: Path) -> pd.DataFrame:
+    labels = labels_path if isinstance(labels_path, pd.DataFrame) else pd.read_parquet(labels_path)
     labels = labels[labels["train"] & labels["route_code"].isin(["003", "301"])]
     labels = labels[~labels["label"].isin(OTHER_CANCEL)].copy()  # weather model only (see model.py)
     archive = ds.dataset(str(archive_dir), format="parquet").to_table(

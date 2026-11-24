@@ -37,6 +37,10 @@ jobs:
         run: python -m ferrypredictor forecast
         env:
           CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+      - name: Extend the training forecast archive to two days ago
+        run: python -m ferrypredictor archive
+        env:
+          CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
       - name: Commit data
         if: always()
         run: 'bash scripts/commit_with_retry.sh "forecast: $(date -u +%Y-%m-%dT%H:%MZ)" store'

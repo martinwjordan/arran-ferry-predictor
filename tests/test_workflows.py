@@ -80,6 +80,11 @@ def test_backfill_is_manual_only():
     assert "python -m ferrypredictor backfill" in runs
 
 
+def test_forecast_also_tops_up_the_training_archive():
+    runs = [s.get("run", "") for s in load("forecast")["jobs"]["forecast"]["steps"]]
+    assert runs.index("python -m ferrypredictor archive") == runs.index("python -m ferrypredictor forecast") + 1
+
+
 def test_collect_starts_publish_by_dispatch():
     wf = load("collect")
     steps = wf["jobs"]["collect"]["steps"]

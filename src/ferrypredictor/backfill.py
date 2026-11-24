@@ -8,6 +8,10 @@ only); ECMWF 9 km January 2025.
 Months before a model's archive starts come back empty and are recorded as done with no rows.
 Lead day 0 (the current run) is not archived, so same-day forecasts come from the live log only.
 
+Top-up (the `archive` job, after each forecast run): the training models' archive is extended from
+the day after END to two days ago, so retraining and live labels always have matching forecasts.
+Progress per model is kept in the same state file under "_through".
+
 Work is split into (model, month) chunks. Each chunk is written as its own part file and then
 recorded in data/state/backfill_done.json, so a stopped run resumes where it left off. Runs stop
 cleanly, without failing, when Open-Meteo's hourly or daily limit is reached.
@@ -117,6 +121,70 @@ def _fetch(http: _Http, params: dict, minute_wait: float) -> dict | list:
     raise RateLimited("per-minute limit persisted")
 
 
+TOP_UP_MODELS = ["gfs_seamless", "ecmwf_ifs025"]  # the two the model trains on
+TOP_UP_LAG = timedelta(days=2)
+
+
+def _base_params(points: dict) -> tuple[list[str], dict]:
+    names = list(points)
+    return names, {
+        "latitude": ",".join(str(points[n].lat) for n in names),
+        "longitude": ",".join(str(points[n].lon) for n in names),
+        "hourly": hourly_variables(),
+        "wind_speed_unit": "kn",
+        "cell_selection": "sea",
+        "timezone": "GMT",
+    }
+
+
+def run_top_up(
+    contact_email: str,
+    now: datetime,
+    data_dir: Path,
+    site_dir: Path,
+    models: list[str] | None = None,
+    pause: float = 4.0,
+    retry_wait: float = 10.0,
+    minute_wait: float = 65.0,
+) -> dict:
+    """Extend the archive for the training models up to two days ago. A no-op once it is up to date."""
+    data_dir, site_dir = Path(data_dir), Path(site_dir)
+    names, base = _base_params(config.load_points())
+    http = _Http(contact_email, retry_wait)
+    state_path = data_dir / "state" / "backfill_done.json"
+    done = load_state(state_path, {})
+    through = done.setdefault("_through", {})
+    target = now.date() - TOP_UP_LAG
+    fetched, rows_written, stopped = 0, 0, None
+    for model in models or TOP_UP_MODELS:
+        start = date.fromisoformat(through.get(model, END.isoformat())) + timedelta(days=1)
+        for first, last in months(start, target):
+            if fetched and pause:
+                time.sleep(pause)
+            params = {**base, "models": model, "start_date": first.isoformat(), "end_date": last.isoformat()}
+            try:
+                rows = rows_from(model, _fetch(http, params, minute_wait), names, now)
+            except RateLimited as e:
+                stopped = str(e)
+                break
+            except ForecastError as e:
+                message = f"top-up {model} {first}..{last}: {e}"
+                update_health(site_dir, "archive", now, ok=False, details={"error": message})
+                raise ForecastError(message) from e
+            append_rows(data_dir / "forecast_archive", rows, ARCHIVE_SCHEMA, now)
+            through[model] = last.isoformat()
+            save_state(state_path, done)  # after the data is on disk
+            fetched += 1
+            rows_written += len(rows)
+        if stopped:
+            break
+    summary = {"requests": fetched, "rows": rows_written, "through": dict(through), "target": target.isoformat()}
+    if stopped:
+        summary["stopped"] = stopped
+    update_health(site_dir, "archive", now, details=summary)
+    return summary
+
+
 def run_backfill(
     contact_email: str,
     now: datetime,
@@ -131,16 +199,7 @@ def run_backfill(
     minute_wait: float = 65.0,
 ) -> dict:
     data_dir, site_dir = Path(data_dir), Path(site_dir)
-    points = config.load_points()
-    names = list(points)
-    base = {
-        "latitude": ",".join(str(points[n].lat) for n in names),
-        "longitude": ",".join(str(points[n].lon) for n in names),
-        "hourly": hourly_variables(),
-        "wind_speed_unit": "kn",
-        "cell_selection": "sea",
-        "timezone": "GMT",
-    }
+    names, base = _base_params(config.load_points())
     http = _Http(contact_email, retry_wait)
     state_path = data_dir / "state" / "backfill_done.json"
     done = load_state(state_path, {})

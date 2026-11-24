@@ -140,3 +140,19 @@ def test_other_errors_fail_the_run_and_are_recorded(tmp_path):
             run(tmp_path)
     health = storage.load_state(tmp_path / "site" / "health" / "backfill.json", {})
     assert "HTTP 400" in health["error"]
+
+
+@respx.mock
+def test_top_up_extends_the_training_models_to_two_days_ago_then_rests(tmp_path):
+    route = respx.get(backfill.ARCHIVE_URL).mock(side_effect=responder)
+    now = datetime(2026, 12, 3, 7, 0, tzinfo=timezone.utc)
+    first = backfill.run_top_up("test@example.com", now, tmp_path / "data", tmp_path / "site", pause=0, retry_wait=0, minute_wait=0)
+    asked = [(r.request.url.params["models"], r.request.url.params["start_date"], r.request.url.params["end_date"]) for r in route.calls]
+    assert asked == [("gfs_seamless", "2026-11-24", "2026-11-30"), ("gfs_seamless", "2026-12-01", "2026-12-01"),
+                     ("ecmwf_ifs025", "2026-11-24", "2026-11-30"), ("ecmwf_ifs025", "2026-12-01", "2026-12-01")]
+    assert first["through"] == {"gfs_seamless": "2026-12-01", "ecmwf_ifs025": "2026-12-01"}
+    assert {r["valid_time"].date() for r in rows(tmp_path)} == {date(2026, 11, 24) + timedelta(days=i) for i in range(8)}
+    again = backfill.run_top_up("test@example.com", now, tmp_path / "data", tmp_path / "site", pause=0, retry_wait=0, minute_wait=0)
+    assert again["requests"] == 0 and len(route.calls) == 4
+    nxt = backfill.run_top_up("test@example.com", now + timedelta(days=1), tmp_path / "data", tmp_path / "site", pause=0, retry_wait=0, minute_wait=0)
+    assert nxt["requests"] == 2 and nxt["through"]["gfs_seamless"] == "2026-12-02"

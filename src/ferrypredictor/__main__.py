@@ -1,4 +1,4 @@
-"""Command line: python -m ferrypredictor collect | parse | predict | labels | score | ais | forecast | backfill | site"""
+"""Command line: python -m ferrypredictor collect | parse | predict | labels | score | ais | forecast | archive | backfill | site"""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ REQUIRED = {
     "ais": ["AISSTREAM_API_KEY"],
     "forecast": ["CONTACT_EMAIL"],
     "backfill": ["CONTACT_EMAIL"],
+    "archive": ["CONTACT_EMAIL"],
     "parse": [],
     "site": [],
     "predict": [],
@@ -76,6 +77,12 @@ def _predict(env: dict, now: datetime) -> dict:
     return run_predict(now, DATA_DIR, SITE_DIR)
 
 
+def _archive(env: dict, now: datetime) -> dict:
+    from .backfill import run_top_up
+
+    return run_top_up(env["CONTACT_EMAIL"], now, DATA_DIR, SITE_DIR)
+
+
 def _labels(env: dict, now: datetime) -> dict:
     from .labels import run_labels
 
@@ -100,7 +107,7 @@ def main(argv: list[str] | None = None) -> int:
     env = {k: os.environ[k] for k in REQUIRED[args.job]}
     now = datetime.now(timezone.utc)
     job = {"collect": _collect, "ais": _ais, "forecast": _forecast, "backfill": _backfill, "parse": _parse, "site": _site, "predict": _predict,
-           "labels": _labels, "score": _score}[args.job]
+           "labels": _labels, "score": _score, "archive": _archive}[args.job]
     try:
         summary = job(env, now)
     except Exception as e:  # report and fail the run; the workflow raises an issue on repeats

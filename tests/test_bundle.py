@@ -71,3 +71,30 @@ def test_predict_combines_weather_and_non_weather(fitted):
     assert bundle.non_weather("003", "ISLE OF ARRAN") == bundle.data["non_weather"]["by_vessel"]["003|ISLE OF ARRAN"]
     assert bundle.non_weather("003", "NEW SHIP") == bundle.data["non_weather"]["by_route"]["003"]  # unknown vessel: route rate
     assert 0 < bundle.data["non_weather"]["overall"] < 0.2
+
+
+def test_foi_and_live_labels_load_together_with_foi_winning(tmp_path):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    from ferrypredictor.foi import LABEL_SCHEMA
+    from ferrypredictor.labels import LIVE_LABEL_SCHEMA
+
+    def row(key, source, label, day, **extra):
+        r = {f: None for f in LABEL_SCHEMA.names}
+        r.update(source=source, sailing_key=key, route_code="003", sailing_date=day, departure_local="07:00",
+                 departure_at=pd.Timestamp(day, tz="UTC"), label=label, train=True, **extra)
+        return r
+
+    d1, d2 = pd.Timestamp("2026-09-30").date(), pd.Timestamp("2026-11-25").date()
+    pq.write_table(pa.Table.from_pylist([row("a", "foi4405", "operated", d1)], schema=LABEL_SCHEMA), tmp_path / "foi.parquet")
+    live = tmp_path / "labels_live"
+    live.mkdir()
+    t0, t1 = pd.Timestamp("2026-11-27", tz="UTC"), pd.Timestamp("2026-12-01", tz="UTC")
+    rows = [row("a", "live", "cancelled_weather", d1, labeller_version=1, confidence="notice", labelled_at=t0),
+            row("b", "live", "operated", d2, labeller_version=1, confidence="timetable", labelled_at=t0),
+            row("b", "live", "cancelled_weather", d2, labeller_version=2, confidence="notice", labelled_at=t1)]
+    pq.write_table(pa.Table.from_pylist(rows, schema=LIVE_LABEL_SCHEMA), live / "part.parquet")
+    out = T.load_labels([tmp_path / "foi.parquet", live]).set_index("sailing_key")
+    assert out.loc["a", "source"] == "foi4405" and out.loc["a", "label"] == "operated"
+    assert out.loc["b", "label"] == "cancelled_weather"  # newest labeller version
+    assert list(out.columns) == [c for c in LABEL_SCHEMA.names if c != "sailing_key"]
