@@ -125,6 +125,7 @@
     return n;
   };
   const ukTime = iso => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+  const longDate = ymd => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, day: "numeric", month: "long", year: "numeric" }).format(new Date(ymd + "T12:00:00Z"));
   const ukDay = iso => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" }).format(new Date(iso));
   const ago = iso => {
     const m = Math.round((Date.now() - new Date(iso)) / 60000);
@@ -183,7 +184,7 @@
     if (cancelled) lines.push("CalMac has cancelled this sailing.");
     else if (c && c.show === "percent") {
       lines.push(`Weather: ${pc(c.p_weather)} chance of a weather cancellation, from the forecast wind and how this ferry has coped in similar forecasts.`);
-      lines.push(`Technical, crew or other: ${pc(c.p_other)}, from how often this ferry was cancelled for those reasons in the six months to ${data.model ? ukDay(data.model.data_through + "T12:00:00Z") : "the latest records"}.`);
+      lines.push(`Technical, crew or other: ${pc(c.p_other)}, from how often this ferry was cancelled for those reasons in the six months to ${data.model ? longDate(data.model.data_through) : "the latest records"}.`);
     } else if (c) {
       lines.push("This far out the forecast is rougher, so this shows a band rather than a number. It firms up as the day gets closer.");
     } else lines.push("No estimate yet: the forecast doesn't reach this sailing, or the latest run hasn't come through.");
@@ -251,7 +252,7 @@
     const f = document.getElementById("footer");
     f.replaceChildren(
       el("div", { text: `Page data built ${ukTime(data.generated_at)}${bits ? " · " + bits : ""}.` }),
-      m ? el("div", { text: `Chances from the ${runs} forecast runs, with a model trained on sailings up to ${ukDay(m.data_through + "T12:00:00Z")} ${m.data_through.slice(0, 4)}.` })
+      m ? el("div", { text: `Chances from the ${runs} forecast runs, with a model trained on sailings up to ${longDate(m.data_through)}.` })
         : el("div", { text: "No up-to-date chances right now: showing CalMac's word and the forecast only." }),
       el("div", {}, "Weather data by ", el("a", { href: "https://open-meteo.com/", rel: "noopener", text: "Open-Meteo" }),
          " (CC BY 4.0), from the UK Met Office, ECMWF and NOAA GFS models. Sailing information from CalMac, and past sailing records released by CalMac under freedom of information. Not affiliated with CalMac."),
