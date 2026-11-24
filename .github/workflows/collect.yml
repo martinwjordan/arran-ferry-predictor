@@ -30,7 +30,10 @@ jobs:
           cache: pip
       - run: pip install -e .
       - name: Check out the data branch
-        run: bash scripts/checkout_data_branch.sh store data/notices data/sailings
+        # Forecasts: this month and last, so the latest run is there on the 1st too.
+        run: >-
+          bash scripts/checkout_data_branch.sh store data/notices data/sailings data/events data/route_status
+          "data/forecasts/$(date -u +%Y-%m)" "data/forecasts/$(date -u -d "$(date -u +%Y-%m-01) -1 day" +%Y-%m)"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Collect CalMac status, notices and sailings
@@ -39,6 +42,8 @@ jobs:
           CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
       - name: Parse notices into sailing events
         run: python -m ferrypredictor parse
+      - name: Chance each sailing runs
+        run: python -m ferrypredictor predict
       - name: Commit data
         if: always()
         run: 'bash scripts/commit_with_retry.sh "collect: $(date -u +%Y-%m-%dT%H:%MZ)" store'

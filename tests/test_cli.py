@@ -62,3 +62,10 @@ def test_parse_needs_no_secrets_and_copes_with_an_empty_store(tmp_path, capsys):
     assert cli.main(["parse"]) == 0
     out = capsys.readouterr().out
     assert '"job": "parse"' in out and '"versions_parsed": 0' in out
+
+
+def test_predict_needs_no_secrets_and_runs_on_an_empty_store(monkeypatch, tmp_path):
+    monkeypatch.delenv("CONTACT_EMAIL", raising=False)
+    monkeypatch.setattr(cli, "_predict", lambda env, now: __import__("ferrypredictor.predict", fromlist=["x"]).run_predict(
+        now, cli.DATA_DIR, cli.SITE_DIR, tmp_path / "missing.json"))
+    assert cli.main(["predict"]) == 0

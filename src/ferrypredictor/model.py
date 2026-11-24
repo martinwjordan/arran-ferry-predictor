@@ -25,7 +25,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from .features import FEATURES
+from .bundle import design as _design
+from .bundle import wind_key as _wind_key
+from .features import FEATURES  # noqa: F401  (re-exported for callers)
 
 GUST_BANDS = [0, 20, 30, 40, 50, 1000]
 CAL_BINS = [0, 0.05, 0.1, 0.2, 0.35, 0.5, 0.65, 0.8, 1.0001]
@@ -79,21 +81,10 @@ class WindRule:
 
     @staticmethod
     def _key(X):
-        band = pd.cut(X["gust_max"], GUST_BANDS, right=False, labels=False).fillna(-1).astype(int)
-        return X["route_troon"].astype(int).astype(str) + "|" + band.astype(str)
+        return _wind_key(X)
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         return self._key(X).map(self.rates).fillna(self.overall).to_numpy()
-
-
-def _design(X: pd.DataFrame) -> pd.DataFrame:
-    d = X[FEATURES].copy()
-    g = d["gust_max"]
-    d["gust_sq"] = g**2 / 100
-    d["gust_troon"] = g * d["route_troon"]
-    d["north_troon"] = d["gust_north"] * d["route_troon"]
-    d["east_troon"] = d["gust_east"] * d["route_troon"]
-    return d
 
 
 class Logistic:

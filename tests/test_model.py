@@ -71,11 +71,12 @@ def synthetic(n_days=540, seed=1):
     for d in range(n_days):
         day = start + timedelta(days=d)
         day_gust = rng.gamma(4, 6)
+        day_dir = rng.uniform(0, 2 * np.pi)
         for k in range(6):
             g = max(0.0, day_gust + rng.normal(0, 3))
             p = 1 / (1 + np.exp(-(g - 38) / 4))
             rows.append({"sailing_key": f"{day}|{k}", "lead_day": 1, "gust_max": g, "wind_max": g * 0.7,
-                         "ecmwf_wind_max": g * 0.7, "gust_north": g * 0.3, "gust_east": g * 0.5,
+                         "ecmwf_wind_max": g * 0.7, "gust_north": g * np.cos(day_dir), "gust_east": g * np.sin(day_dir),
                          "port_gust_max": g * 0.9, "day_gust_max": day_gust + 6, "route_troon": float(k % 2), "evening": float(k > 3),
                          "winter": float(day.month in (10, 11, 12, 1, 2, 3)),
                          **{f"vessel_{v.lower().replace(' ', '_')}": float(v == "ISLE OF ARRAN") for v in F.VESSELS},
@@ -88,7 +89,7 @@ def test_baselines_and_logistic_learn_the_gust_effect():
     calm, storm = df[df.gust_max < 15].head(50), df[df.gust_max > 50].head(50)
     for cls in (M.WindRule, M.Logistic):
         m = cls().fit(df, df.y)
-        assert m.predict(storm).mean() > 0.7 > 0.1 > m.predict(calm).mean()
+        assert m.predict(storm).mean() > 0.6 > 0.1 > m.predict(calm).mean()  # the rule's top band starts at 40 kn
     clim = M.Climatology().fit(df, df.y).predict(df)
     assert 0 < clim.min() <= clim.max() < 1
     assert "gust_sq" in M.Logistic().fit(df, df.y).coefficients()

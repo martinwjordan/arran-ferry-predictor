@@ -59,10 +59,14 @@ def test_schedules_are_offset_so_jobs_rarely_push_together():
     assert not minutes["collect"] & minutes["ais"]
 
 
-def test_collect_parses_notices_with_their_history_checked_out():
+def test_collect_parses_notices_then_predicts_with_what_they_read_checked_out():
     runs = [s.get("run", "") for s in load("collect")["jobs"]["collect"]["steps"]]
-    assert "bash scripts/checkout_data_branch.sh store data/notices data/sailings" in runs
+    checkout = next(r for r in runs if r.startswith("bash scripts/checkout_data_branch.sh store"))
+    for folder in ("data/notices", "data/sailings", "data/events", "data/route_status", '"data/forecasts/$(date -u +%Y-%m)"'):
+        assert folder in checkout
+    assert "-1 day" in checkout  # last month's forecasts too
     assert runs.index("python -m ferrypredictor parse") == runs.index("python -m ferrypredictor collect") + 1
+    assert runs.index("python -m ferrypredictor predict") == runs.index("python -m ferrypredictor parse") + 1
 
 
 def test_backfill_is_manual_only():
