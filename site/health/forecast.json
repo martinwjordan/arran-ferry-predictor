@@ -1,25 +1,17 @@
 {
  "details": {
   "rows": {
-   "ecmwf_ifs": 700,
-   "marine": 700,
-   "ukmo_uk_deterministic_2km": 240
+   "ecmwf_ifs": 0,
+   "marine": 690,
+   "ukmo_uk_deterministic_2km": 245
   },
   "run_times": {
    "ecmwf_ifs": "2026-11-23T18:00:00+00:00",
-   "ukmo_uk_deterministic_2km": "2026-11-23T23:00:00+00:00"
-  },
-  "shared_grid_cells": {
-   "ecmwf_ifs": [
-    [
-     "ardrossan",
-     "mid_ardrossan"
-    ]
-   ]
+   "ukmo_uk_deterministic_2km": "2026-11-24T02:00:00+00:00"
   }
  },
  "job": "forecast",
  "last_failure": "2026-11-23T16:02:33+00:00",
- "last_success": "2026-11-24T04:07:07+00:00",
- "updated": "2026-11-24T04:07:07+00:00"
+ "last_success": "2026-11-24T06:53:26+00:00",
+ "updated": "2026-11-24T06:53:26+00:00"
 }
