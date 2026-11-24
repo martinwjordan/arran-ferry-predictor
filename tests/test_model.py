@@ -115,7 +115,7 @@ def test_scores_and_calibration():
 def test_walk_forward_retrains_monthly_and_the_blend_sits_between():
     df = synthetic()
     res = B.walk_forward(df, "2025-01-01", "2025-06-30")
-    assert set(B.MODELS) <= set(res.columns) and res["sailing_date"].min() >= pd.Timestamp("2025-01-01")
+    assert set(B.MODELS) - {"stacked"} <= set(res.columns) and res["sailing_date"].min() >= pd.Timestamp("2025-01-01")
     assert np.allclose(res["blend"], 0.5 * (res["logistic"] + res["wind_rule"]))
     out = B.run(df, "2025-01-01", "2025-06-30")
     s = out["scores"]
@@ -137,3 +137,33 @@ def test_day_gust_is_the_worst_sailing_of_that_route_and_uk_day():
     assert f.loc["a", "day_gust_max"] == 55.0 and f.loc["b", "day_gust_max"] == 55.0  # same route, same day
     assert f.loc["c", "day_gust_max"] == 20.0  # Troon route
     assert f.loc["d", "day_gust_max"] == 20.0  # next day
+
+
+def test_stacker_learns_to_trust_the_sharper_input_and_falls_back_with_little_data():
+    rng = np.random.default_rng(3)
+    n = 4000
+    truth = rng.random(n)
+    y = (rng.random(n) < truth).astype(int)
+    sharp = np.clip(truth + rng.normal(0, 0.03, n), 0.001, 0.999)  # close to the truth
+    flat = np.clip(0.5 * (truth + rng.normal(0, 0.25, n)) + 0.25, 0.01, 0.99)  # noisy and compressed
+    s = M.Stacker().fit(sharp, flat, y)
+    w = s.weights()
+    assert w["logistic"] > abs(w["wind_rule"])
+    p = s.predict(sharp, flat)
+    assert M.brier(y, p) < M.brier(y, 0.5 * sharp + 0.5 * flat)
+    few = M.Stacker().fit(sharp[:50], flat[:50], np.r_[np.ones(5), np.zeros(45)])
+    assert few.weights() is None
+    assert np.allclose(few.predict(sharp[:3], flat[:3]), 0.5 * sharp[:3] + 0.5 * flat[:3])
+
+
+def test_stacked_column_uses_only_earlier_months():
+    df = synthetic()
+    oot = B.walk_forward(df, "2024-07-01", "2025-06-30")
+    res = B.stack(oot, "2025-01-01", "2025-06-30")
+    assert res["sailing_date"].min() >= pd.Timestamp("2025-01-01") and "stacked" in res
+    # Changing a later month's outcomes must not change an earlier month's stacked predictions
+    tampered = oot.copy()
+    tampered.loc[tampered["sailing_date"] >= pd.Timestamp("2025-03-01"), "y"] = 1
+    again = B.stack(tampered, "2025-01-01", "2025-06-30")
+    jan = res["sailing_date"] < pd.Timestamp("2025-02-01")
+    assert np.allclose(res.loc[jan, "stacked"], again.loc[jan.values, "stacked"])

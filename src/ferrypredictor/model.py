@@ -8,6 +8,9 @@ Three models, so the logistic model has to earn its place (design spec, launch b
 - Climatology: the training rate for that route and calendar month.
 - WindRule: the training rate for that route and forecast gust band (under 20, 20-29, ... 50+ kn).
 - Logistic: logistic regression on the forecast features, one model per lead day.
+- Stacker: the final step. Combines logistic and wind rule with weights learned from their own
+  earlier out-of-time predictions, which also corrects calibration. A fixed 50/50 blend pulled the
+  riskiest sailings towards the middle (rated 65-80%, cancelled about 90% of the time).
 
 All three accept sample weights, so recent sailings can count for more: CalMac's behaviour shifts
 with each vessel change (Caledonian Isles was away all of 2024; Glen Sannox arrived January 2025).
@@ -110,6 +113,40 @@ class Logistic:
     def coefficients(self) -> dict[str, float]:
         names = list(_design(pd.DataFrame(columns=FEATURES)).columns)
         return dict(zip(names, self.pipe[-1].coef_[0].round(3)))
+
+
+def _logit(p) -> np.ndarray:
+    p = np.clip(np.asarray(p, float), 1e-4, 1 - 1e-4)
+    return np.log(p / (1 - p))
+
+
+class Stacker:
+    """Logistic regression on the logits of the logistic model and the wind rule.
+
+    Fitted only on out-of-time predictions (each made by models trained on earlier months), so it
+    learns how far to trust each input and corrects their calibration. With fewer than
+    MIN_POSITIVES cancellations to learn from it falls back to the 50/50 blend."""
+
+    MIN_POSITIVES = 30
+    name = "stacked"
+
+    def fit(self, p_logistic, p_wind, y):
+        y = np.asarray(y)
+        self.model = None
+        if y.sum() >= self.MIN_POSITIVES and y.sum() < len(y):
+            self.model = LogisticRegression(C=10, max_iter=1000).fit(np.c_[_logit(p_logistic), _logit(p_wind)], y)
+        return self
+
+    def predict(self, p_logistic, p_wind) -> np.ndarray:
+        if self.model is None:
+            return 0.5 * np.asarray(p_logistic, float) + 0.5 * np.asarray(p_wind, float)
+        return self.model.predict_proba(np.c_[_logit(p_logistic), _logit(p_wind)])[:, 1]
+
+    def weights(self) -> dict[str, float] | None:
+        if self.model is None:
+            return None
+        a, b = self.model.coef_[0]
+        return {"logistic": round(float(a), 3), "wind_rule": round(float(b), 3), "intercept": round(float(self.model.intercept_[0]), 3)}
 
 
 def brier(y, p) -> float:

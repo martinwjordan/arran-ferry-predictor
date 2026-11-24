@@ -1,14 +1,17 @@
 """Backtest the weather-cancellation model the way it will run live: retrained every month.
 
-For each month of the test winter, every model is trained on all labelled sailings before that
-month and scored on that month. Models: climatology, the wind rule, logistic regression, and the
-blend (the average of logistic and wind rule), chosen on winter 2024/25 before scoring 2025/26.
+For each month, every model is trained on all labelled sailings before that month and scored on
+that month. Models: climatology, the wind rule, logistic regression, the 50/50 blend, and the
+**stacked** model: logistic and wind rule combined with weights learned from their own out-of-time
+predictions in earlier months. Each design choice (monthly retraining, the day-gust feature,
+stacking) was made on winter 2024/25 before scoring 2025/26.
 
 Calibration uncertainty: cancellations cluster (one storm day cancels every sailing that day), so
 each band's gap gets a 90% interval from resampling whole days. A band "fits" the launch bar if
 its interval reaches within 10 percentage points.
 
 Usage: python -m ferrypredictor.backtest LABELS.parquet ARCHIVE_DIR OUT.md [--test 2025-10-01:2026-03-31]
+         [--history-start 2024-05-01]   (first month of out-of-time predictions the stacker learns from)
 LABELS is the FOI label file (private data repo); ARCHIVE_DIR holds the archived forecasts
 (data/forecast_archive on the data branch). The report holds aggregate scores only.
 """
@@ -24,12 +27,13 @@ import pandas as pd
 import pyarrow.dataset as ds
 
 from . import features as F
-from .model import CAL_BINS, Climatology, Logistic, WindRule, auc, brier
+from .model import CAL_BINS, Climatology, Logistic, Stacker, WindRule, auc, brier
 
 WEATHER = "cancelled_weather"
 OTHER_CANCEL = {"cancelled_technical", "cancelled_other"}
-MODELS = ("climatology", "wind_rule", "logistic", "blend")
-CHOSEN = "blend"
+MODELS = ("climatology", "wind_rule", "logistic", "blend", "stacked")
+CHOSEN = "stacked"
+HISTORY_START = "2024-05-01"
 
 
 def load(labels_path: Path, archive_dir: Path) -> pd.DataFrame:
@@ -71,6 +75,20 @@ def walk_forward(d: pd.DataFrame, start: str, end: str, min_train: int = 500) ->
     return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
 
 
+def stack(oot: pd.DataFrame, start: str, end: str) -> pd.DataFrame:
+    """Add the stacked probability to the test months of a walk_forward result. Each month's stacker
+    learns only from out-of-time predictions for months before it."""
+    parts = []
+    for m in pd.period_range(start, end, freq="M"):
+        hist = oot[oot["sailing_date"] < m.start_time]
+        cur = oot[(oot["sailing_date"] >= m.start_time) & (oot["sailing_date"] <= m.end_time)]
+        if cur.empty:
+            continue
+        s = Stacker().fit(hist["logistic"], hist["wind_rule"], hist["y"])
+        parts.append(cur.assign(stacked=s.predict(cur["logistic"], cur["wind_rule"])))
+    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+
+
 def calibration_with_noise(y, p, days, boots: int = 1000, seed: int = 42) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     df = pd.DataFrame({"y": np.asarray(y, float), "p": np.asarray(p, float), "day": np.asarray(days)})
@@ -92,10 +110,11 @@ def calibration_with_noise(y, p, days, boots: int = 1000, seed: int = 42) -> pd.
     return t
 
 
-def run(df: pd.DataFrame, start: str, end: str) -> dict:
+def run(df: pd.DataFrame, start: str, end: str, history_start: str = HISTORY_START) -> dict:
     scores, cals = [], {}
     for lead in F.LEAD_DAYS:
-        res = walk_forward(df[df["lead_day"] == lead], start, end)
+        oot = walk_forward(df[df["lead_day"] == lead], min(history_start, start), end)
+        res = stack(oot, start, end) if not oot.empty else oot
         if res.empty:
             continue
         for m in MODELS:
@@ -116,25 +135,26 @@ def report(res: dict, start: str, end: str) -> str:
         f"Test {pd.Timestamp(start):%d %b %Y} to {pd.Timestamp(end):%d %b %Y}: {int(first.n)} sailings on {int(first.days)} days, "
         f"{int(first.cancels)} weather cancellations (lead day 1). Each month uses a model trained on all earlier months.",
         "",
-        f"Chosen model: **{CHOSEN}** (average of logistic and wind rule), picked on winter 2024/25.",
+        f"Chosen model: **{CHOSEN}** (logistic and wind rule combined with weights learned from earlier "
+        "out-of-time predictions), picked on winter 2024/25.",
         "",
-        "| Lead day | Climatology | Wind rule | Logistic | Blend | Blend v climatology | Blend v wind rule | AUC (blend) | Calibration fits, allowing for noise |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| Lead day | Climatology | Wind rule | Logistic | Blend | Stacked | Stacked v climatology | Stacked v wind rule | AUC (stacked) | Calibration fits, allowing for noise |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     met = []
     for lead in b.index:
-        c, w, l, x = (b.loc[lead, k] for k in MODELS)
+        c, w, l, bl, x = (b.loc[lead, k] for k in MODELS)
         cal = res["calibration"][lead]
         fits = bool(cal[cal["counts"]]["fits"].all())
         if lead <= 3:
             met.append(x < min(c, w) and fits)
-        lines.append(f"| {lead} | {c:.4f} | {w:.4f} | {l:.4f} | {x:.4f} | {1 - x / c:+.0%} | {1 - x / w:+.0%} | "
+        lines.append(f"| {lead} | {c:.4f} | {w:.4f} | {l:.4f} | {bl:.4f} | {x:.4f} | {1 - x / c:+.0%} | {1 - x / w:+.0%} | "
                      f"{a.loc[lead, CHOSEN]:.3f} | {'yes' if fits else 'no'} |")
     lines += ["", f"**Launch bar, days 1-3 (beat both baselines; every band within 10 points, allowing for noise): "
               f"{'met' if all(met) else 'not met'}** ({', '.join(f'day {i + 1}: ' + ('met' if ok else 'not met') for i, ok in enumerate(met))}).", ""]
     for lead in sorted(res["calibration"]):
         cal = res["calibration"][lead]
-        lines += [f"## Calibration, blend, day {lead}", "",
+        lines += [f"## Calibration, stacked, day {lead}", "",
                   "| Predicted band | Sailings | Days | Predicted | Observed | Gap | 90% interval | Fits |", "|---|---|---|---|---|---|---|---|"]
         for band, r in cal.iterrows():
             lines.append(f"| {band} | {int(r.n)} | {int(r.days)} | {r.predicted:.0%} | {r.observed:.0%} | {r.gap:+.0%} | "
@@ -149,9 +169,10 @@ def main(argv=None) -> int:
     ap.add_argument("archive", type=Path)
     ap.add_argument("out", type=Path)
     ap.add_argument("--test", default="2025-10-01:2026-03-31")
+    ap.add_argument("--history-start", default=HISTORY_START)
     args = ap.parse_args(argv)
     start, end = args.test.split(":")
-    res = run(load(args.labels, args.archive), start, end)
+    res = run(load(args.labels, args.archive), start, end, args.history_start)
     text = report(res, start, end)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(text)
