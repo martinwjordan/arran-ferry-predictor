@@ -28,7 +28,8 @@ def test_schedule_and_manual_trigger(name):
 def test_runs_never_overlap_and_permissions_are_minimal(name):
     wf = load(name)
     assert wf["concurrency"] == {"group": name, "cancel-in-progress": False}
-    assert wf["permissions"] == {"contents": "write", "issues": "write", "actions": "read"}
+    actions = "write" if name == "collect" else "read"  # collect starts the publish workflow
+    assert wf["permissions"] == {"contents": "write", "issues": "write", "actions": actions}
 
 
 @pytest.mark.parametrize("name", SCHEDULES)
@@ -74,3 +75,12 @@ def test_backfill_is_manual_only():
     assert "schedule" not in wf["on"] and "workflow_dispatch" in wf["on"]
     runs = [s.get("run", "") for s in wf["jobs"]["backfill"]["steps"]]
     assert "python -m ferrypredictor backfill" in runs
+
+
+def test_collect_starts_publish_by_dispatch():
+    wf = load("collect")
+    steps = wf["jobs"]["collect"]["steps"]
+    runs = [s.get("run", "") for s in steps]
+    assert any(r.startswith("gh workflow run publish.yml") for r in runs)
+    pub = load("publish")
+    assert set(pub["on"]) == {"workflow_dispatch"}

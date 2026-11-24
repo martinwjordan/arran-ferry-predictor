@@ -1,10 +1,7 @@
 name: publish
 
-# Rebuild the phone page after every collect or forecast run, and on demand.
+# Rebuild the phone page. Started by the collect workflow after each successful run, or by hand.
 on:
-  workflow_run:
-    workflows: [collect, forecast]
-    types: [completed]
   workflow_dispatch:
 
 concurrency:

@@ -12,7 +12,7 @@ concurrency:
 permissions:
   contents: write
   issues: write
-  actions: read
+  actions: write  # to start the publish workflow
 
 jobs:
   collect:
@@ -47,6 +47,11 @@ jobs:
       - name: Commit data
         if: always()
         run: 'bash scripts/commit_with_retry.sh "collect: $(date -u +%Y-%m-%dT%H:%MZ)" store'
+      - name: Rebuild the phone page
+        # A dispatch, not a workflow_run trigger: GitHub has never fired this repo's internal triggers (see docs/scheduling.md).
+        run: gh workflow run publish.yml --ref main -R "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Raise an issue after three failures in a row
         if: failure()
         run: bash scripts/issue_on_repeated_failure.sh collect.yml
