@@ -52,6 +52,8 @@ pytest
 
 CalMac's per-sailing performance data (FOI 4405, released via FOI 4428: every scheduled Arran sailing from 2007 to September 2026, with vessel, outcome and reason) is the training set. The files are CalMac's, so they live in a private data repository, not here. This repo holds only the code that turns them into labels: `python -m ferrypredictor.foi ANNEX_E.xlsx [ANNEX_D.csv] OUT.parquet` (needs `pip install -e ".[foi]"`), tested on made-up rows.
 
+The model (`features.py`, `model.py`) and its backtest (`python -m ferrypredictor.backtest LABELS.parquet ARCHIVE_DIR OUT.md`, needs `.[model]`) also live here. The backtest retrains monthly, as the live system will, and reports aggregate scores only.
+
 ## Licence
 
 Code: [MIT](LICENSE). Forecast data from Open-Meteo is CC BY 4.0; CalMac and AIS data remain subject to their providers' terms.

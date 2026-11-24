@@ -25,9 +25,17 @@ dev = [
     "pytest-asyncio>=0.23",
     "respx>=0.21",
     "openpyxl>=3.1",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "scikit-learn>=1.4",
 ]
 foi = [
     "openpyxl>=3.1",
+]
+model = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "scikit-learn>=1.4",
 ]
 
 [tool.setuptools.packages.find]
