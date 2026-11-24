@@ -9,6 +9,8 @@ Features, all from the forecast at that lead day:
 - gust_north, gust_east: gust split by the direction it comes from at departure, so the model can
   learn each route's exposure (northerly-easterly winds divert Ardrossan; westerlies cancel)
 - port_gust_max: strongest gust at either end of the crossing at departure or arrival
+- day_gust_max: the worst gust_max across all of that route's sailings that day (UK date). Once a
+  day turns bad, CalMac often calls off the rest of it, borderline sailings included
 - route, departure hour (UK), winter flag, vessel
 """
 
@@ -27,7 +29,7 @@ SECOND_MODEL = "ecmwf_ifs025"
 LEAD_DAYS = (1, 2, 3, 4, 5)
 VESSELS = ("CALEDONIAN ISLES", "ISLE OF ARRAN", "ALFRED", "GLEN SANNOX")
 FEATURES = [
-    "gust_max", "wind_max", "ecmwf_wind_max", "gust_north", "gust_east", "port_gust_max",
+    "gust_max", "wind_max", "ecmwf_wind_max", "gust_north", "gust_east", "port_gust_max", "day_gust_max",
     "route_troon", "evening", "winter",
 ] + [f"vessel_{v.lower().replace(' ', '_')}" for v in VESSELS]
 
@@ -81,6 +83,7 @@ def build(sailings: pd.DataFrame, forecasts: pd.DataFrame, lead_days=LEAD_DAYS) 
             ends.append(t.set_index("row")["wind_gust_kn"])
         port = pd.concat(ends, axis=1).max(axis=1)
 
+        local_day = s["departure_at"].dt.tz_convert(UK).dt.date
         local_hour = s["departure_at"].dt.tz_convert(UK).dt.hour
         month = s["departure_at"].dt.tz_convert(UK).dt.month
         feat = pd.DataFrame(
@@ -93,6 +96,7 @@ def build(sailings: pd.DataFrame, forecasts: pd.DataFrame, lead_days=LEAD_DAYS) 
                 "gust_north": gust_dep * np.cos(rad),
                 "gust_east": gust_dep * np.sin(rad),
                 "port_gust_max": port,
+                "day_gust_max": agg["gust_max"].groupby([s["route_code"], local_day]).transform("max"),
                 "route_troon": (s["route_code"] == "301").astype(float),
                 "evening": (local_hour >= 16).astype(float),
                 "winter": month.isin([10, 11, 12, 1, 2, 3]).astype(float),

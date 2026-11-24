@@ -76,7 +76,7 @@ def synthetic(n_days=540, seed=1):
             p = 1 / (1 + np.exp(-(g - 38) / 4))
             rows.append({"sailing_key": f"{day}|{k}", "lead_day": 1, "gust_max": g, "wind_max": g * 0.7,
                          "ecmwf_wind_max": g * 0.7, "gust_north": g * 0.3, "gust_east": g * 0.5,
-                         "port_gust_max": g * 0.9, "route_troon": float(k % 2), "evening": float(k > 3),
+                         "port_gust_max": g * 0.9, "day_gust_max": day_gust + 6, "route_troon": float(k % 2), "evening": float(k > 3),
                          "winter": float(day.month in (10, 11, 12, 1, 2, 3)),
                          **{f"vessel_{v.lower().replace(' ', '_')}": float(v == "ISLE OF ARRAN") for v in F.VESSELS},
                          "sailing_date": pd.Timestamp(day), "month": day.month, "y": int(rng.random() < p)})
@@ -123,3 +123,17 @@ def test_walk_forward_retrains_monthly_and_the_blend_sits_between():
     assert blend < clim
     text = B.report(out, "2025-01-01", "2025-06-30")
     assert "Launch bar" in text and "90% interval" in text
+
+
+def test_day_gust_is_the_worst_sailing_of_that_route_and_uk_day():
+    d0 = datetime(2025, 1, 10, 7, 0, tzinfo=UTC)
+    sails = [sailing("a", "003", "Ardrossan", "Brodick", d0, d0 + timedelta(minutes=55)),
+             sailing("b", "003", "Brodick", "Ardrossan", d0 + timedelta(hours=10), d0 + timedelta(hours=10, minutes=55)),
+             sailing("c", "301", "Troon", "Brodick", d0 + timedelta(hours=3), d0 + timedelta(hours=4, minutes=20)),
+             sailing("d", "003", "Ardrossan", "Brodick", d0 + timedelta(days=1), d0 + timedelta(days=1, minutes=55))]
+    hours = [d0 + timedelta(hours=k) for k in range(-1, 30)]
+    gust = lambda h, p: 55.0 if (p == "mid_ardrossan" and h == d0 + timedelta(hours=10)) else 20.0
+    f = F.build(pd.DataFrame(sails), forecasts_for(hours, gust=gust), lead_days=(1,)).set_index("sailing_key")
+    assert f.loc["a", "day_gust_max"] == 55.0 and f.loc["b", "day_gust_max"] == 55.0  # same route, same day
+    assert f.loc["c", "day_gust_max"] == 20.0  # Troon route
+    assert f.loc["d", "day_gust_max"] == 20.0  # next day
