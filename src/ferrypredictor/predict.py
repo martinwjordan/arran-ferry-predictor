@@ -67,7 +67,8 @@ PREDICTION_SCHEMA = pa.schema(
 def band(p_runs: float | None) -> str | None:
     if p_runs is None or np.isnan(p_runs):
         return None
-    return "Likely" if p_runs >= 0.75 else "Uncertain" if p_runs >= 0.40 else "Unlikely"
+    pct = round(p_runs * 100)  # judged on the whole percentage the page shows, so 74.8% reads 75% and Likely
+    return "Likely" if pct >= 75 else "Uncertain" if pct >= 40 else "Unlikely"
 
 
 def _hourly(m: pd.DataFrame) -> pd.DataFrame:
@@ -199,6 +200,22 @@ def build(now: datetime, data_dir: Path, bundle: Bundle) -> tuple[list[dict], di
     return out, meta
 
 
+NEXT_PER_DIRECTION = 6
+
+
+def next_by_direction(sailings: list[dict], n: int = NEXT_PER_DIRECTION) -> list[dict]:
+    """The next few sailings each way, compact enough for a Home Assistant attribute."""
+    out = []
+    for route, origin, dest in sorted({(s["route"], s["from"], s["to"]) for s in sailings}):
+        up = sorted((s for s in sailings if (s["route"], s["from"], s["to"]) == (route, origin, dest) and not s["departed"]),
+                    key=lambda s: (s["date"], s["depart"]))[:n]
+        out.append({"route": route, "from": origin, "to": dest, "sailings": [
+            {"date": s["date"], "time": s["depart"], "vessel": s["vessel"],
+             "chance": None if s["p_runs"] is None else round(s["p_runs"] * 100),
+             "show": s["show"], "band": s["band"], "calmac": s["calmac"]} for s in up]})
+    return out
+
+
 def run_predict(now: datetime, data_dir: Path, site_dir: Path, model_path: Path = MODEL_PATH) -> dict:
     data_dir, site_dir = Path(data_dir), Path(site_dir)
     if not Path(model_path).exists():
@@ -206,7 +223,8 @@ def run_predict(now: datetime, data_dir: Path, site_dir: Path, model_path: Path 
         return {"skipped": "no model"}
     bundle = Bundle.load(model_path)
     sailings, meta = build(now, data_dir, bundle)
-    payload = {"generated_at": now.isoformat(timespec="seconds"), **meta, "sailings": sailings}
+    payload = {"generated_at": now.isoformat(timespec="seconds"), **meta,
+               "next": next_by_direction(sailings), "sailings": sailings}
     site_dir.mkdir(parents=True, exist_ok=True)
     tmp = site_dir / "predictions.json.tmp"
     tmp.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))

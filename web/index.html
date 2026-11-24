@@ -53,9 +53,22 @@
   @media (prefers-color-scheme: dark) { .tabs button[aria-selected="true"] { color: #0d171c; } }
   .route-block { margin-bottom: 16px; }
   .route-block h3 { font-size: .95rem; margin: 6px 4px 8px; color: var(--muted); font-weight: 600; }
-  .sailing { display: grid; grid-template-columns: 74px 1fr auto; gap: 4px 12px; align-items: center;
+  .route-block h3 { display: flex; justify-content: space-between; }
+  .route-block h3 span { font-size: .75rem; font-weight: 600; align-self: flex-end; }
+  .sailing { display: grid; grid-template-columns: 64px 1fr auto; gap: 4px 12px; align-items: center;
              background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 6px; }
+  .sailing[tabindex] { cursor: pointer; }
+  .sailing:focus-visible { outline: 2px solid var(--sea-2); outline-offset: 2px; }
   .sailing.past { opacity: .5; }
+  .chance { text-align: right; min-width: 72px; font-variant-numeric: tabular-nums; }
+  .pct { font-size: 1.45rem; font-weight: 800; line-height: 1; }
+  .band { font-size: .85rem; font-weight: 700; border-radius: 999px; padding: 4px 10px; display: inline-block; }
+  .c-ok { color: var(--ok); } .c-warn { color: var(--warn); } .c-bad { color: var(--bad); }
+  .band.c-ok { background: var(--ok-bg); } .band.c-warn { background: var(--warn-bg); } .band.c-bad { background: var(--bad-bg); }
+  .gone { font-size: .9rem; font-weight: 800; color: var(--bad); }
+  .none { font-size: .78rem; color: var(--muted); }
+  .more { grid-column: 1 / -1; font-size: .85rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 6px; margin-top: 2px; }
+  .more p { margin: 2px 0; }
   .time { font-weight: 700; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
   .time small { display: block; font-weight: 400; font-size: .75rem; color: var(--muted); }
   .dir { font-size: .92rem; }
@@ -65,7 +78,7 @@
   .b-diverted, .b-at_risk_diversion { background: var(--warn-bg); color: var(--warn); }
   .b-at_risk { background: var(--info-bg); color: var(--info); }
   .b-reinstated { background: var(--ok-bg); color: var(--ok); }
-  .wx { text-align: right; font-size: .85rem; line-height: 1.3; font-variant-numeric: tabular-nums; }
+  .wx { font-size: .82rem; line-height: 1.3; font-variant-numeric: tabular-nums; margin-top: 3px; display: flex; flex-wrap: wrap; gap: 2px 10px; }
   .wind { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
   .arrow { display: inline-block; width: 14px; height: 14px; }
   .g1 { color: var(--ink); } .g2 { color: var(--warn); } .g3 { color: var(--bad); }
@@ -80,7 +93,7 @@
 <body>
 <header>
   <h1>Arran ferries <span class="pill">Beta</span></h1>
-  <p>Every sailing for the next five days, with CalMac's latest word and the forecast mid-crossing.</p>
+  <p>The chance each sailing runs over the next five days, with CalMac's latest word and the forecast mid-crossing.</p>
 </header>
 <main>
   <div class="notice">Unofficial and still learning. Always check <a href="https://www.calmac.co.uk/en-gb/service-status/" rel="noopener">CalMac's service status</a> before you travel.</div>
@@ -88,7 +101,8 @@
   <section class="routes" id="routes" aria-label="Route status"></section>
   <nav class="tabs" id="tabs" role="tablist" aria-label="Day"></nav>
   <section id="day" aria-live="polite"></section>
-  <p class="legend">Wind is the strongest forecast mid-crossing during the sailing, in knots, with the direction it blows from. Gusts are coloured at 30 and 40 knots as a guide only: this page does not predict cancellations yet.</p>
+  <p class="legend"><strong>Chance it runs</strong> is our estimate from the forecast wind and how often sailings were cancelled in similar forecasts since 2024, by ferry, plus a small allowance for technical and other cancellations. Today and the next two days show a percentage; further out shows Likely (75% or more), Uncertain or Unlikely (under 40%). CalMac's word always wins: a cancelled sailing shows as cancelled. Tap a sailing for the detail.</p>
+  <p class="legend">Wind is the strongest forecast mid-crossing during the sailing, in knots, with the direction it blows from. Gusts are coloured at 30 and 40 knots.</p>
   <footer id="footer"></footer>
 </main>
 <script>
@@ -151,9 +165,37 @@
     });
   }
 
+  const tone = p => { const n = Math.round(p * 100); return n >= 75 ? "c-ok" : n >= 40 ? "c-warn" : "c-bad"; };
+  const pc = p => `${Math.round(p * 100)}%`;
+  const RUNS = { gfs_seamless: "GFS", ecmwf_ifs025: "ECMWF" };
+
+  function chance(s, cancelled) {
+    if (s.departed) return el("div", { class: "chance" });
+    if (cancelled) return el("div", { class: "chance" }, el("span", { class: "gone", text: "Cancelled" }));
+    const c = s.chance;
+    if (!c) return el("div", { class: "chance" }, el("span", { class: "none", text: "No estimate yet" }));
+    if (c.show === "percent") return el("div", { class: "chance" }, el("span", { class: `pct ${tone(c.p)}`, text: pc(c.p) }));
+    return el("div", { class: "chance" }, el("span", { class: `band ${tone(c.p)}`, text: c.band }));
+  }
+
+  function detail(s, cancelled) {
+    const c = s.chance, lines = [];
+    if (cancelled) lines.push("CalMac has cancelled this sailing.");
+    else if (c && c.show === "percent") {
+      lines.push(`Weather: ${pc(c.p_weather)} chance of a weather cancellation, from the forecast wind and how this ferry has coped in similar forecasts.`);
+      lines.push(`Technical, crew or other: ${pc(c.p_other)}, from how often this ferry was cancelled for those reasons in the six months to ${data.model ? ukDay(data.model.data_through + "T12:00:00Z") : "the latest records"}.`);
+    } else if (c) {
+      lines.push("This far out the forecast is rougher, so this shows a band rather than a number. It firms up as the day gets closer.");
+    } else lines.push("No estimate yet: the forecast doesn't reach this sailing, or the latest run hasn't come through.");
+    if (s.calmac.includes("at_risk")) lines.push("CalMac has flagged this sailing as at risk; the estimate doesn't include that yet.");
+    if (s.wind) lines.push(`Wind shown from the ${MODEL[s.wind.model] || s.wind.model} forecast issued ${ukDay(s.wind.issued)} ${ukTime(s.wind.issued)}.`);
+    return el("div", { class: "more" }, lines.map(t => el("p", { text: t })));
+  }
+
   function sailing(s) {
     const badges = el("div", { class: "badges" });
     const kinds = [...s.calmac]; if (s.removed && !kinds.includes("cancelled")) kinds.unshift("removed");
+    const cancelled = kinds.includes("cancelled") || kinds.includes("removed");
     for (const k of kinds) {
       let text = BADGE[k] || k;
       if (k === "diverted") text = s.from === "Brodick" ? "Diverted to Troon" : "Sails from Troon";
@@ -165,17 +207,26 @@
       const g = s.wind.gust_kn ?? s.wind.speed_kn;
       const cls = g >= 40 ? "g3" : g >= 30 ? "g2" : "g1";
       const dir = s.wind.dir_deg != null ? compass(s.wind.dir_deg) : "";
-      wx.append(el("div", { class: `wind ${cls}`, title: `${MODEL[s.wind.model] || s.wind.model} forecast` },
+      wx.append(el("span", { class: `wind ${cls}` },
         s.wind.dir_deg != null ? arrow(s.wind.dir_deg) : null,
         `${dir} ${s.wind.speed_kn}${s.wind.gust_kn != null ? `, gusts ${s.wind.gust_kn}` : ""} kn`));
-    } else {
-      wx.append(el("div", { class: "waves", text: s.departed ? "" : "No forecast yet" }));
     }
-    if (s.waves) wx.append(el("div", { class: "waves", text: `Waves ${Number(s.waves.height_m).toFixed(1)} m` }));
-    return el("div", { class: `sailing${s.departed ? " past" : ""}` },
+    if (s.waves) wx.append(el("span", { class: "waves", text: `Waves ${Number(s.waves.height_m).toFixed(1)} m` }));
+    const card = el("div", { class: `sailing${s.departed ? " past" : ""}` },
       el("div", { class: "time" }, s.depart, el("small", { text: s.arrive ? `arr ${s.arrive}` : "" })),
-      el("div", {}, el("div", { class: "dir", text: `${s.from} → ${s.to}` }), badges),
-      wx);
+      el("div", {}, el("div", { class: "dir", text: `${s.from} → ${s.to}` }), badges, wx.childNodes.length ? wx : null),
+      chance(s, cancelled));
+    if (!s.departed) {
+      card.setAttribute("tabindex", "0"); card.setAttribute("role", "button"); card.setAttribute("aria-expanded", "false");
+      const toggle = () => {
+        const open = card.querySelector(".more");
+        if (open) open.remove(); else card.append(detail(s, cancelled));
+        card.setAttribute("aria-expanded", String(!open));
+      };
+      card.addEventListener("click", toggle);
+      card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+    }
+    return card;
   }
 
   function day() {
@@ -184,7 +235,7 @@
     box.append(el("h2", { class: "sr", text: d.label }));
     for (const r of data.routes) {
       const list = d.sailings.filter(s => s.route === r.code);
-      const block = el("div", { class: "route-block" }, el("h3", { text: r.name }));
+      const block = el("div", { class: "route-block" }, el("h3", {}, r.name, list.some(s => !s.departed) ? el("span", { text: "Chance it runs" }) : null));
       if (!list.length) block.append(el("div", { class: "empty", text: "No sailings in CalMac's published timetable for this day." }));
       list.forEach(s => block.append(sailing(s)));
       box.append(block);
@@ -195,11 +246,15 @@
     const h = data.health || {};
     const line = (name, label) => h[name] && h[name].last_success ? `${label} ${ago(h[name].last_success)}` : null;
     const bits = [line("collect", "CalMac checked"), line("forecast", "forecast fetched")].filter(Boolean).join(" · ");
+    const m = data.model;
+    const runs = m ? Object.entries(m.runs || {}).map(([k, v]) => `${RUNS[k] || k} ${ukDay(v)} ${ukTime(v)}`).join(", ") : "";
     const f = document.getElementById("footer");
     f.replaceChildren(
       el("div", { text: `Page data built ${ukTime(data.generated_at)}${bits ? " · " + bits : ""}.` }),
+      m ? el("div", { text: `Chances from the ${runs} forecast runs, with a model trained on sailings up to ${ukDay(m.data_through + "T12:00:00Z")} ${m.data_through.slice(0, 4)}.` })
+        : el("div", { text: "No up-to-date chances right now: showing CalMac's word and the forecast only." }),
       el("div", {}, "Weather data by ", el("a", { href: "https://open-meteo.com/", rel: "noopener", text: "Open-Meteo" }),
-         " (CC BY 4.0), from the UK Met Office and ECMWF models. Sailing information from CalMac. Not affiliated with CalMac."),
+         " (CC BY 4.0), from the UK Met Office, ECMWF and NOAA GFS models. Sailing information from CalMac, and past sailing records released by CalMac under freedom of information. Not affiliated with CalMac."),
       el("div", {}, "A community project: ", el("a", { href: "https://github.com/martinwjordan/arran-ferry-predictor", rel: "noopener", text: "source and method on GitHub" }), "."));
     const stale = document.getElementById("stale");
     const last = h.collect && h.collect.last_success;

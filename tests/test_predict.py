@@ -86,6 +86,7 @@ def test_percentages_for_three_days_then_bands(store, model_path):
     later = by[("2026-11-26", "003", "07:00")]
     assert later["show"] == "band" and later["band"] in ("Likely", "Uncertain", "Unlikely")
     assert predict.band(0.8) == "Likely" and predict.band(0.5) == "Uncertain" and predict.band(0.2) == "Unlikely"
+    assert predict.band(0.7475) == "Likely" and predict.band(0.394) == "Unlikely"  # as the rounded percentage reads
 
 
 def test_predictions_are_archived_once_per_forecast_run(store, model_path):
@@ -109,3 +110,15 @@ def test_vessel_override_and_missing_model(store, tmp_path):
     assert v == {"301": "ALFRED"}
     summary = predict.run_predict(NOW, store / "data", store / "site", tmp_path / "nope.json")
     assert summary == {"skipped": "no model"}
+
+
+def test_next_sailings_each_way_for_home_assistant(store, model_path):
+    _, by, payload = run(store, model_path)
+    nxt = {(d["route"], d["from"]): d["sailings"] for d in payload["next"]}
+    assert set(nxt) == {("003", "Ardrossan"), ("003", "Brodick"), ("301", "Troon"), ("301", "Brodick")}
+    first = nxt[("003", "Ardrossan")][0]
+    assert first["date"] == "2026-11-24" and len(nxt[("003", "Ardrossan")]) == predict.NEXT_PER_DIRECTION
+    assert first["chance"] == round(by[("2026-11-24", "003", first["time"])]["p_runs"] * 100)
+    cancelled = nxt[("301", "Brodick")][0]  # the 07:30, cancelled and dropped from the timetable
+    assert cancelled["calmac"] == "cancelled" and cancelled["chance"] == 0
+    assert len(json.dumps(payload["next"])) < 8000  # well inside Home Assistant's attribute limit

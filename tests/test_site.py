@@ -100,3 +100,36 @@ def test_run_site_writes_page_and_data(store):
     assert (out / "index.html").exists()
     payload = json.loads((out / "sailings.json").read_text())
     assert payload["generated_at"] == "2026-11-23T20:00:00+00:00"
+
+
+def write_predictions(store, made, sailings):
+    (store / "site").mkdir(parents=True, exist_ok=True)
+    (store / "site" / "predictions.json").write_text(json.dumps({
+        "generated_at": made.isoformat(), "model_as_of": "2026-10-01", "data_through": "2026-09-30",
+        "runs": {"gfs_seamless": "2026-11-23T12:00:00+00:00"}, "sailings": sailings}))
+
+
+def chance_row(key, p, show="percent", band="Likely"):
+    return {"key": key, "p_runs": p, "show": show, "band": band, "lead_day": 1, "p_weather": 1 - p, "p_non_weather": 0.02}
+
+
+def test_fresh_chances_join_the_page_by_sailing_key(store):
+    p = site.build(NOW, store / "data", store / "site")
+    wed = sailings(p, "2026-11-25", "003")
+    key, past = wed["12:30"]["key"], sailings(p, "2026-11-23")["07:30"]["key"]
+    write_predictions(store, NOW - timedelta(minutes=20), [chance_row(key, 0.81), chance_row(past, 0.5)])
+    p = site.build(NOW, store / "data", store / "site")
+    assert sailings(p, "2026-11-25", "003")["12:30"]["chance"] == {
+        "p": 0.81, "show": "percent", "band": "Likely", "lead_day": 1, "p_weather": pytest.approx(0.19), "p_other": 0.02}
+    assert sailings(p, "2026-11-23")["07:30"]["chance"] is None  # already sailed
+    assert sailings(p, "2026-11-25", "003")["07:00"]["chance"] is None  # no prediction for it
+    assert p["model"]["data_through"] == "2026-09-30" and p["model"]["runs"]["gfs_seamless"].startswith("2026-11-23T12")
+
+
+def test_stale_or_missing_chances_are_left_off(store):
+    p = site.build(NOW, store / "data", store / "site")
+    assert p["model"] is None
+    key = sailings(p, "2026-11-25", "003")["12:30"]["key"]
+    write_predictions(store, NOW - timedelta(hours=4), [chance_row(key, 0.81)])
+    p = site.build(NOW, store / "data", store / "site")
+    assert p["model"] is None and sailings(p, "2026-11-25", "003")["12:30"]["chance"] is None

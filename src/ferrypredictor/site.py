@@ -1,8 +1,9 @@
-"""site job: build the data file behind the phone page (first version, before the model exists).
+"""site job: build the data file behind the phone page.
 
 For every sailing in the next five days (UK dates): the scheduled times, CalMac's current word on
 it (from the parsed notices of active notice versions, and whether CalMac has removed it from its
-timetable), and the forecast wind and waves mid-crossing. No probabilities yet.
+timetable), the forecast wind and waves mid-crossing, and the chance it runs from the predict job
+(site/predictions.json), when that is fresh.
 
 Wind comes from the UK Met Office 2 km model where its latest run covers the crossing, otherwise
 ECMWF. Waves come from Open-Meteo's marine model. All times on the page are UK time.
@@ -30,6 +31,26 @@ MID_POINT = {"003": "mid_ardrossan", "301": "mid_troon"}
 WIND_MODELS = ["ukmo_uk_deterministic_2km", "ecmwf_ifs"]  # first that covers the crossing wins
 EVENT_ORDER = ["cancelled", "diverted", "at_risk_diversion", "at_risk", "reinstated"]
 WEB_DIR = REPO_ROOT / "web"
+PREDICTIONS_MAX_AGE = timedelta(hours=3)  # older than this and the page shows no chances rather than stale ones
+
+
+def load_predictions(site_dir: Path, now: datetime) -> tuple[dict[str, dict], dict | None]:
+    """Chances by sailing key, and what they were made from. Empty if missing or stale."""
+    try:
+        p = json.loads((Path(site_dir) / "predictions.json").read_text())
+        made = datetime.fromisoformat(p["generated_at"])
+    except (OSError, ValueError, KeyError):
+        return {}, None
+    if now - made > PREDICTIONS_MAX_AGE:
+        return {}, None
+    chances = {
+        s["key"]: {"p": s["p_runs"], "show": s["show"], "band": s["band"], "lead_day": s["lead_day"],
+                   "p_weather": s["p_weather"], "p_other": s["p_non_weather"]}
+        for s in p.get("sailings", []) if s.get("p_runs") is not None
+    }
+    meta = {"generated_at": p["generated_at"], "model_as_of": p.get("model_as_of"),
+            "data_through": p.get("data_through"), "runs": p.get("runs", {})}
+    return chances, meta
 
 
 def _hour(t: datetime) -> datetime:
@@ -156,6 +177,7 @@ def build(now: datetime, data_dir: Path, site_dir: Path) -> dict:
     live = active_versions(notices, now)
     events = current_events(read_dataset(data_dir / "events", parse.EVENT_SCHEMA).to_pylist(), live)
     fc = latest_forecasts(read_dataset(data_dir / "forecasts", FORECAST_SCHEMA).to_pylist())
+    chances, model = load_predictions(site_dir, now)
 
     today = now.astimezone(UK).date()
     days = []
@@ -179,6 +201,7 @@ def build(now: datetime, data_dir: Path, site_dir: Path) -> dict:
                     "calmac": kinds,
                     "wind": wind_for(s.route, depart, arrive, fc) if depart else None,
                     "waves": waves_for(s.route, depart, arrive, fc) if depart else None,
+                    "chance": None if depart and depart < now else chances.get(s.key),
                 }
             )
         sailings.sort(key=lambda x: (x["route"], x["depart"]))
@@ -194,6 +217,7 @@ def build(now: datetime, data_dir: Path, site_dir: Path) -> dict:
         "generated_at": now.isoformat(timespec="seconds"),
         "routes": route_summaries(read_dataset(data_dir / "route_status", ROUTE_STATUS_SCHEMA).to_pylist(), live),
         "days": days,
+        "model": model,
         "health": {k: {"last_success": v.get("last_success"), "error": v.get("error")} for k, v in health.items()},
     }
 

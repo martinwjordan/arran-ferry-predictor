@@ -1,0 +1,153 @@
+# Chance each Arran ferry runs, for the house dashboard. Package: copy to /config/packages/house_ferry_chances.yaml.
+#
+#   sensor.house_ferry_chances: when the chances were last worked out (timestamp). Attributes: next (the next six
+#     sailings each way on 003 and 301: date, time, vessel, chance %, show percent|band, band, calmac), model_as_of,
+#     data_through, runs. From the predictor's predictions.json on GitHub, every 20 minutes.
+#   sensor.house_ferry_chance_lowest: lowest chance (%) of any sailing in the next 24 hours that CalMac hasn't
+#     already cancelled; attribute sailing names it. Unavailable when the chances are over three hours old.
+#   sensor.house_ferry_next_from_brodick, _from_ardrossan, _brodick_to_troon, _from_troon: chance (%) of the next
+#     sailing that way (0 if CalMac has cancelled it). Attributes: time ("Wed 07:00") and label ("89%", "Likely",
+#     "at risk", "cancelled by CalMac").
+#   binary_sensor.house_alert_ferry_chance: on when a sailing in the next 24 hours is below 75%, for the alert strip
+#     (severity warning below 40%). CalMac's own cancellations stay with binary_sensor.house_alert_ferries.
+# Source and method: https://github.com/martinwjordan/arran-ferry-predictor (docs/home-assistant.md).
+
+rest:
+- resource: https://raw.githubusercontent.com/martinwjordan/arran-ferry-predictor/data/site/predictions.json
+  scan_interval: 1200
+  timeout: 30
+  sensor:
+  - name: House ferry chances
+    unique_id: house_ferry_chances
+    icon: mdi:ferry
+    device_class: timestamp
+    value_template: '{{ value_json.generated_at }}'
+    json_attributes:
+    - next
+    - model_as_of
+    - data_through
+    - runs
+template:
+- sensor:
+  - name: House ferry chance lowest
+    unique_id: house_ferry_chance_lowest
+    icon: mdi:ferry
+    unit_of_measurement: '%'
+    availability: |-
+      {% set t = states('sensor.house_ferry_chances') %}
+      {{ t not in ['unknown', 'unavailable'] and (now() - as_datetime(t)).total_seconds() < 10800 }}
+    state: |-
+      {% set soon = now() + timedelta(hours=24) %}
+      {% set ns = namespace(best=none, label='') %}
+      {% for d in (state_attr('sensor.house_ferry_chances', 'next') or []) %}{% for x in d.sailings %}
+        {% if x.chance is number and x.calmac != 'cancelled' and as_local(as_datetime(x.date ~ ' ' ~ x.time)) <= soon
+              and (ns.best is none or x.chance < ns.best.chance) %}
+          {% set ns.best = x %}
+          {% set ns.label = d['from'] ~ ' to ' ~ d['to'] ~ ' ' ~ (as_timestamp(as_local(as_datetime(x.date ~ ' ' ~ x.time))) | timestamp_custom('%a %H:%M')) ~ ': ' ~ x.chance ~ '%' %}
+        {% endif %}
+      {% endfor %}{% endfor %}
+      {{ ns.best.chance if ns.best else none }}
+    attributes:
+      sailing: |-
+        {% set soon = now() + timedelta(hours=24) %}
+        {% set ns = namespace(best=none, label='') %}
+        {% for d in (state_attr('sensor.house_ferry_chances', 'next') or []) %}{% for x in d.sailings %}
+          {% if x.chance is number and x.calmac != 'cancelled' and as_local(as_datetime(x.date ~ ' ' ~ x.time)) <= soon
+                and (ns.best is none or x.chance < ns.best.chance) %}
+            {% set ns.best = x %}
+            {% set ns.label = d['from'] ~ ' to ' ~ d['to'] ~ ' ' ~ (as_timestamp(as_local(as_datetime(x.date ~ ' ' ~ x.time))) | timestamp_custom('%a %H:%M')) ~ ': ' ~ x.chance ~ '%' %}
+          {% endif %}
+        {% endfor %}{% endfor %}
+        {{ ns.label }}
+  - name: House ferry next from Brodick
+    unique_id: house_ferry_next_from_brodick
+    icon: mdi:ferry
+    unit_of_measurement: '%'
+    availability: |-
+      {% set t = states('sensor.house_ferry_chances') %}
+      {{ t not in ['unknown', 'unavailable'] and (now() - as_datetime(t)).total_seconds() < 10800 }}
+    state: |-
+      {% set m = (state_attr('sensor.house_ferry_chances', 'next') or []) | selectattr('route', 'eq', '003') | selectattr('from', 'eq', 'Brodick') | list %}
+      {% set x = m[0].sailings[0] if m and m[0].sailings else none %}
+      {{ none if not x else 0 if x.calmac == 'cancelled' else x.chance }}
+    attributes:
+      time: |-
+        {% set m = (state_attr('sensor.house_ferry_chances', 'next') or []) | selectattr('route', 'eq', '003') | selectattr('from', 'eq', 'Brodick') | list %}
+        {% set x = m[0].sailings[0] if m and m[0].sailings else none %}
+        {{ (as_timestamp(as_local(as_datetime(x.date ~ ' ' ~ x.time))) | timestamp_custom('%a %H:%M')) if x else '' }}
+      label: |-
+        {% set m = (state_attr('sensor.house_ferry_chances', 'next') or []) | selectattr('route', 'eq', '003') | selectattr('from', 'eq', 'Brodick') | list %}
+        {% set x = m[0].sailings[0] if m and m[0].sailings else none %}
+        {% set words = {'cancelled': 'cancelled by CalMac', 'diverted': 'diverted', 'at_risk_diversion': 'may divert', 'at_risk': 'at risk'} %}
+        {{ ((x.calmac and words.get(x.calmac, x.calmac)) or (x.band if x.show == 'band' else x.chance ~ '%')) if x else '' }}
+  - name: House ferry next from Ardrossan
+    unique_id: house_ferry_next_from_ardrossan
+    icon: mdi:ferry
+    unit_of_measurement: '%'
+    availability: |-
+      {% set t = states('sensor.house_ferry_chances') %}
+      {{ t not in ['unknown', 'unavailable'] and (now() - as_datetime(t)).total_seconds() < 10800 }}
+    state: |-
+      {% set m = (state_attr('sensor.house_ferry_chances', 'next') or []) | selectattr('route', 'eq', '003') | selectattr('from', 'eq', 'Ardrossan') | list %}
+      {% set x = m[0].sailings[0] if m and m[0].sailings else none %}
+      {{ none if not x else 0 if x.calmac == 'cancelled' else x.chance }}
+    attributes:
+      time: |-
+        {% set m = (state_attr('sensor.house_ferry_chances', 'next') or []) | selectattr('route', 'eq', '003') | selectattr('from', 'eq', 'Ardrossan') | list %}
+        {% set x = m[0].sailings[0] if m and m[0].sailings else none %}
+        {{ (as_timestamp(as_local(as_datetime(x.date ~ ' ' ~ x.time))) | timestamp_custom('%a %H:%M')) if x else '' }}
+      label: |-
+        {% set m = (state_attr('sensor.house_ferry_chances', 'next') or []) | selectattr('route', 'eq', '003') | selectattr('from', 'eq', 'Ardrossan') | list %}
+        {% set x = m[0].sailings[0] if m and m[0].sailings else none %}
+        {% set words = {'cancelled': 'cancelled by CalMac', 'diverted': 'diverted', 'at_risk_diversion': 'may divert', 'at_risk': 'at risk'} %}
+        {{ ((x.calmac and words.get(x.calmac, x.calmac)) or (x.band if x.show == 'band' else x.chance ~ '%')) if x else '' }}
+  - name: House ferry next Brodick to Troon
+    unique_id: house_ferry_next_brodick_to_troon
+    icon: mdi:ferry
+    unit_of_measurement: '%'
+    availability: |-
+      {% set t = states('sensor.house_ferry_chances') %}
+      {{ t not in ['unknown', 'unavailable'] and (now() - as_datetime(t)).total_seconds() < 10800 }}
+    state: |-
+      {% set m = (state_attr('sensor.house_ferry_chances', 'next') or []) | selectattr('route', 'eq', '301') | selectattr('from', 'eq', 'Brodick') | list %}
+      {% set x = m[0].sailings[0] if m and m[0].sailings else none %}
+      {{ none if not x else 0 if x.calmac == 'cancelled' else x.chance }}
+    attributes:
+      time: |-
+        {% set m = (state_attr('sensor.house_ferry_chances', 'next') or []) | selectattr('route', 'eq', '301') | selectattr('from', 'eq', 'Brodick') | list %}
+        {% set x = m[0].sailings[0] if m and m[0].sailings else none %}
+        {{ (as_timestamp(as_local(as_datetime(x.date ~ ' ' ~ x.time))) | timestamp_custom('%a %H:%M')) if x else '' }}
+      label: |-
+        {% set m = (state_attr('sensor.house_ferry_chances', 'next') or []) | selectattr('route', 'eq', '301') | selectattr('from', 'eq', 'Brodick') | list %}
+        {% set x = m[0].sailings[0] if m and m[0].sailings else none %}
+        {% set words = {'cancelled': 'cancelled by CalMac', 'diverted': 'diverted', 'at_risk_diversion': 'may divert', 'at_risk': 'at risk'} %}
+        {{ ((x.calmac and words.get(x.calmac, x.calmac)) or (x.band if x.show == 'band' else x.chance ~ '%')) if x else '' }}
+  - name: House ferry next from Troon
+    unique_id: house_ferry_next_from_troon
+    icon: mdi:ferry
+    unit_of_measurement: '%'
+    availability: |-
+      {% set t = states('sensor.house_ferry_chances') %}
+      {{ t not in ['unknown', 'unavailable'] and (now() - as_datetime(t)).total_seconds() < 10800 }}
+    state: |-
+      {% set m = (state_attr('sensor.house_ferry_chances', 'next') or []) | selectattr('route', 'eq', '301') | selectattr('from', 'eq', 'Troon') | list %}
+      {% set x = m[0].sailings[0] if m and m[0].sailings else none %}
+      {{ none if not x else 0 if x.calmac == 'cancelled' else x.chance }}
+    attributes:
+      time: |-
+        {% set m = (state_attr('sensor.house_ferry_chances', 'next') or []) | selectattr('route', 'eq', '301') | selectattr('from', 'eq', 'Troon') | list %}
+        {% set x = m[0].sailings[0] if m and m[0].sailings else none %}
+        {{ (as_timestamp(as_local(as_datetime(x.date ~ ' ' ~ x.time))) | timestamp_custom('%a %H:%M')) if x else '' }}
+      label: |-
+        {% set m = (state_attr('sensor.house_ferry_chances', 'next') or []) | selectattr('route', 'eq', '301') | selectattr('from', 'eq', 'Troon') | list %}
+        {% set x = m[0].sailings[0] if m and m[0].sailings else none %}
+        {% set words = {'cancelled': 'cancelled by CalMac', 'diverted': 'diverted', 'at_risk_diversion': 'may divert', 'at_risk': 'at risk'} %}
+        {{ ((x.calmac and words.get(x.calmac, x.calmac)) or (x.band if x.show == 'band' else x.chance ~ '%')) if x else '' }}
+- binary_sensor:
+  - name: House alert ferry chance
+    unique_id: house_alert_ferry_chance
+    icon: mdi:ferry
+    state: '{{ states(''sensor.house_ferry_chance_lowest'') | is_number and states(''sensor.house_ferry_chance_lowest'') | int < 75 }}'
+    attributes:
+      severity: '{{ ''warning'' if states(''sensor.house_ferry_chance_lowest'') | int(100) < 40 else ''info'' }}'
+      message: 'Ferry chances: {{ state_attr(''sensor.house_ferry_chance_lowest'', ''sailing'') }} (lowest in the next 24 hours)'
