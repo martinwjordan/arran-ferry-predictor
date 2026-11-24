@@ -1,4 +1,4 @@
-"""Command line: python -m ferrypredictor collect | parse | predict | ais | forecast | backfill | site"""
+"""Command line: python -m ferrypredictor collect | parse | predict | labels | score | ais | forecast | backfill | site"""
 
 from __future__ import annotations
 
@@ -25,6 +25,8 @@ REQUIRED = {
     "parse": [],
     "site": [],
     "predict": [],
+    "labels": [],
+    "score": [],
 }
 
 
@@ -74,6 +76,18 @@ def _predict(env: dict, now: datetime) -> dict:
     return run_predict(now, DATA_DIR, SITE_DIR)
 
 
+def _labels(env: dict, now: datetime) -> dict:
+    from .labels import run_labels
+
+    return run_labels(now, DATA_DIR, SITE_DIR)
+
+
+def _score(env: dict, now: datetime) -> dict:
+    from .score import run_score
+
+    return run_score(now, DATA_DIR, SITE_DIR)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="ferrypredictor")
     parser.add_argument("job", choices=sorted(REQUIRED))
@@ -85,7 +99,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     env = {k: os.environ[k] for k in REQUIRED[args.job]}
     now = datetime.now(timezone.utc)
-    job = {"collect": _collect, "ais": _ais, "forecast": _forecast, "backfill": _backfill, "parse": _parse, "site": _site, "predict": _predict}[args.job]
+    job = {"collect": _collect, "ais": _ais, "forecast": _forecast, "backfill": _backfill, "parse": _parse, "site": _site, "predict": _predict,
+           "labels": _labels, "score": _score}[args.job]
     try:
         summary = job(env, now)
     except Exception as e:  # report and fail the run; the workflow raises an issue on repeats

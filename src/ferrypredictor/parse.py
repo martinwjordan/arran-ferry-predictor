@@ -121,6 +121,7 @@ class Sailing:
     local: str  # departure, HH:MM UK time
     minutes: int  # minutes after midnight, UK time
     removed: bool = False  # dropped from CalMac's feed, usually because it was cancelled
+    removed_at: datetime | None = None  # when it was dropped, if it was
 
 
 @dataclass
@@ -150,7 +151,8 @@ def build_timetable(rows: list[dict]) -> list[Sailing]:
     for key, (_, alive, r) in latest.items():
         local = r["departure_at"].astimezone(UK)
         out.append(Sailing(key, r["route_code"], local.date(), r["origin"], r["destination"] or "",
-                           f"{local:%H:%M}", local.hour * 60 + local.minute, removed=not alive))
+                           f"{local:%H:%M}", local.hour * 60 + local.minute, removed=not alive,
+                           removed_at=None if alive else r["observed_at"]))
     return sorted(out, key=lambda s: (s.route, s.date, s.minutes))
 
 
