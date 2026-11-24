@@ -1,15 +1,12 @@
 {
  "details": {
-  "events": {
-   "at_risk": 16,
-   "diverted": 1
-  },
+  "events": {},
   "parser_version": 1,
   "reparsed_all": false,
-  "unparsed": 3,
-  "versions_parsed": 2
+  "unparsed": 0,
+  "versions_parsed": 0
  },
  "job": "parse",
- "last_success": "2026-11-24T16:07:42+00:00",
- "updated": "2026-11-24T16:07:42+00:00"
+ "last_success": "2026-11-24T16:27:44+00:00",
+ "updated": "2026-11-24T16:27:44+00:00"
 }
