@@ -250,3 +250,12 @@ All data lives in the repo as append-only Parquet files, partitioned by month.
 | Sailing identity | Route, departure port and scheduled time | CalMac's sailing ids are reissued without notice |
 | Scheduling | Outside timer calling GitHub's API (see `docs/scheduling.md`) | GitHub fired no cron runs in the first three hours |
 | AIS cross-check | In version one, from Phase 1 | Independent check on parsed labels; cannot be backfilled free later |
+
+## 15. Changes since sign-off (24 November 2026)
+
+- **Outcome labels:** CalMac's FOI 4405 release (2007 to September 2026) is the main training source, kept in a private repo. Live labels come from notices first, then timetable removals, else operated, once a day has settled; the Claude review of unresolved text is still to come (diversion days are the main gap).
+- **Model:** logistic regression plus a gust-band rule, stacked, retrained monthly; GFS and ECMWF 0.25 degree as inputs because they have archives back to 2024. Technical and other risk is a rolling 180-day rate per ferry.
+- **Display:** percentages for today and the next two days, bands after that; CalMac's word always wins.
+- **Scoring:** a live scorecard per lead day against "assume it sails" and climatology, from the archived predictions and live labels.
+- **Hosting:** publish is dispatched by collect; GitHub's own schedule and `workflow_run` triggers never fired for this repo.
+- **AIS:** parked (no coverage on aisstream.io; MarineTraffic declined a receiver).

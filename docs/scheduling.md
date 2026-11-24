@@ -12,9 +12,12 @@ Set up on 23 November 2026, on cron-job.org (account: martinwjordan@gmail.com).
 |---|---|---|---|
 | collect | `7,27,47 * * * *` | 3 failures in a row | 16:47, 23 Nov 2026 |
 | forecast | `53 */6 * * *` | 2 failures in a row | 18:53, 23 Nov 2026 (test run 18:09 succeeded) |
+| publish | dispatched by `collect` after each successful run | (collect's alerts) | 19:07, 24 Nov 2026 |
 
 - **Token:** fine-grained, `arran-ferry-predictor` only, Actions read and write. **Expires 22 November 2027.** Both timers stop on that date: generate a new token and paste it into each job's Authorization header before then.
 - cron-job.org also emails on recovery and if it disables a job for repeated failures.
+- After `forecast`, the same run tops up the training archive (`archive`); after `collect`, the same run parses, predicts, labels and scores before dispatching `publish`.
+- **GitHub's `workflow_run` trigger never fired either**, so `collect` starts `publish` itself (`gh workflow run`, `actions: write`). When GitHub Pages was first switched on (24 November, 15:49) the first publish runs sat queued for about three hours and could not be cancelled, then cleared by themselves.
 
 ## 1. Create a token (GitHub, signed in as martinwjordan)
 

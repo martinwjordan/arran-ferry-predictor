@@ -246,3 +246,60 @@ Changes made during the build, with reasons:
 - **Backfill.** Archived forecasts for lead days 1 to 5 fetched in (model, month) chunks from GitHub runners without hitting Open-Meteo's limits (60 chunks per run). Lead day 0 is never archived. GFS cells put mid-Ardrossan and mid-Troon in one cell (about 13 km grid).
 - **One-week review** booked as a scheduled task for Monday 30 November, 10:23 UK: pipeline health, data, parser output, outcomes against forecasts, and a draft Phase 2 plan, written to `docs/reviews/` and the project.
 - **Backfill complete** (20:28, 23 November): 175 chunks, about 2.06 million rows of forecasts as issued 1 to 5 days ahead, 1 January 2024 to 23 November 2026. Archive starts found: GFS January 2024; ECMWF 0.25 degree February 2024 (no gusts); UK Met Office global and 2 km August 2024 (2 km covers lead days 1 and 2 only); ECMWF 9 km January 2025. This supersedes the single-day probe figures above.
+
+## Build notes (24 November 2026)
+
+What was built on 24 November, the decisions taken and what we found. Status, model results and FOI details are kept in the project notes and the private data repo.
+
+### Built
+
+- **FOI 4428 in.** Originals, checksums and labels in the private repo `martinwjordan/arran-ferry-data` (90,594 sailings, 87,490 trainable). Label normaliser `ferrypredictor.foi` in the public repo, code only.
+- **Model and backtest.** Logistic regression and a gust-band rule, combined by a stacker fitted on earlier out-of-time predictions, retrained monthly. Meets the launch bar at days 1 to 3 on both unseen winters (details in the backtest doc).
+- **Technical and other cancellation risk.** 180-day rate per ferry (needs 200+ sailings) or per route, shrunk towards the route rate with a prior of 50 sailings. At 30 September: Caledonian Isles 9.5%, Alfred 1.6%, route 003 9.0%, route 301 6.4%. Chance it runs = (1 - weather risk) x (1 - technical/other risk).
+- **Model bundle.** `model/weather.json` in the public repo: per lead day the logistic coefficients, wind-rule rates and stacking weights, plus the technical/other rates. Coefficients and aggregate rates only. Prediction needs numpy and pandas, no scikit-learn. Trained to 30 September 2026.
+- **Live forecasts match training.** The forecast job also logs GFS and ECMWF 0.25 degree on sea cells.
+- **predict job** after every collect: latest GFS and ECMWF 0.25 runs, CalMac's word first (cancelled or removed shows 0%), `site/predictions.json` for the page and Home Assistant, one archived row per sailing per forecast run in `data/predictions/`.
+- **Phone page** shows a "chance it runs" column: a percentage for today and the next two days, then Likely (75% or more), Uncertain or Unlikely (under 40%). Tap a sailing for the weather and technical split. Chances over three hours old are hidden.
+- **Home Assistant package** `homeassistant/house_ferry_chances.yaml` with `docs/home-assistant.md`: REST sensor on predictions.json, lowest chance in the next 24 hours, next sailing each way, an alert-strip binary sensor in the `house_alert_*` pattern, and a Markdown card. Not installed yet.
+- **Live labels** (`labels` job) and **scorecard** (`score` job) after every collect; **archive top-up** (`archive` job) after every forecast run. Rules below.
+- **Training takes several label sources**: FOI files and `data/labels_live`, FOI winning where both cover a sailing. FOI-only training reproduces the live model exactly.
+- **Scheduled tasks:** monthly retrain on the 2nd at 11:17 UK (retrains only on newer labels, checks stacking and rates, reports the scorecard headline); one-week review Monday 30 November 10:23 UK.
+
+### Decisions
+
+- Page live on GitHub Pages from 24 November, unlisted, until the scorecard has a few weeks of winter behind it.
+- Bands judged on the rounded percentage, so 74.8% reads 75% and Likely.
+- CalMac's word always wins on the page; "at risk" is shown but not yet modelled.
+- Publish is dispatched by collect after each successful run, not by GitHub's `workflow_run` trigger.
+- FOI data stays private; live labels come from CalMac's public feed, so they sit on the public data branch.
+
+### Live label rules (labeller version 1)
+
+1. Notice first: the latest definitive event any notice version gave the sailing wins. Cancelled is cancelled_weather or cancelled_other by the notice reason (weather or operational); diverted; reinstated is operated. "At risk" is never definitive.
+2. Timetable next: removed before departure with no definitive event is a cancellation, with the reason of the notice that flagged it, else cancelled_unknown (not trained on). Removed more than 72 hours ahead with no notice is a planned change: kept, not trained on or scored.
+3. Otherwise operated: confidence "timetable", or "at_risk" if a notice flagged it.
+4. Sailings first seen less than 24 hours before departure (relief or diversion sailings, for example Caledonian Isles running from Troon in the 301 timetable) are additional_unscheduled: kept, not trained on or scored.
+5. A day settles at the end of the following UK day; each settled day is written once. First full day: 24 November (labelled early on 26 November).
+
+### Scorecard rules
+
+The model's own chance (not the 0% shown after a CalMac cancellation) from the latest forecast run at each lead day, against whether the sailing ran (operated or diverted). Predictions made after CalMac had already cancelled are left out and counted. Brier against "assume it sails" and climatology (the model's long-run rates), AUC, bands, misses; confident labels (notice, timetable) reported separately. Skill shown from 30 sailings per lead day. Output `site/scorecard.json` and `site/scorecard.md` on the data branch.
+
+### Findings
+
+- **Removals are only logged before departure**, so a removal is always a pre-departure signal. Older timetable parts lack `sailing_key`; anything working out when a sailing was first seen must rebuild the key, or every sailing looks newly added after the 16:02 id reissue on 23 November.
+- **Diversion days blur labels.** On 24 November CalMac switched Caledonian Isles to a Troon timetable (11:30, 13:20, 17:00, final 19:00 to Ardrossan). It removed the morning Ardrossan sailings but left the afternoon ones listed as "at risk", although they were replaced. Those label as operated with confidence at_risk. A Claude review of diversion days would fix it.
+- **3-hourly forecasts** further out left crossing hours empty in live data; the predictor fills gaps of up to 3 hours, as Open-Meteo's archive does.
+- **Synthetic test data with a fixed wind direction** made the logistic model extrapolate wildly for real directions in tests (a forecast gale barely moved the chance). Test data now has random directions. The real model behaves: northerly to north-easterly gusts worst for Ardrossan, westerly to north-westerly worst for Troon.
+- **Home Assistant templates:** `as_local()` treats naive times as local (Europe/London); `| first` on an empty list raises, so the package indexes a list instead.
+- **GitHub Actions oddities on this repo:** scheduled runs and `workflow_run` triggers never fire. After Pages was switched on (15:49), the first publish runs sat "queued" for about three hours, could not be cancelled ("not been queued yet"), then cleared by themselves around 18:47; the first few failed at deploy, every run since 19:07 has deployed. The `github-pages` environment has no reviewers or wait timer and allows `main`.
+- **MarineTraffic declined** the free AIS receiver; AIS parked.
+
+### Open
+
+- Claude review of diversion days (relabel "at risk" sailings that were replaced).
+- CalMac "at risk" flags as a model input.
+- Follow-up FOI in January for 1 October to 23 November (live labels cannot cover it).
+- February fleet change: Caledonian Isles retires, Glen Rosa to Troon, Hebrides on Ardrossan. New ferries start from the route average; check the operating-vessel mapping when they switch.
+- Share with islanders once lead days 1 to 3 beat climatology on a few weeks of live winter data.
+- Replace the cron-job.org token before 22 November 2027.
