@@ -25,7 +25,11 @@ from .storage import append_rows, load_state, save_state
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
-WIND_MODELS = ["ecmwf_ifs", "ukmo_uk_deterministic_2km"]
+# ecmwf_ifs and the Met Office 2 km model add detail; gfs_seamless and ecmwf_ifs025 are the models the
+# weather model is trained on (the only ones archived back to early 2024), so they must be logged live.
+WIND_MODELS = ["ecmwf_ifs", "ukmo_uk_deterministic_2km", "gfs_seamless", "ecmwf_ifs025"]
+# Open-Meteo publishes run metadata under the underlying model's name for some combined models.
+META_MODEL = {"gfs_seamless": "ncep_gfs013"}
 FORECAST_DAYS = 6
 TS = pa.timestamp("us", tz="UTC")
 
@@ -57,7 +61,7 @@ class ForecastError(RuntimeError):
 
 
 def meta_url(model: str) -> str:
-    return f"https://api.open-meteo.com/data/{model}/static/meta.json"
+    return f"https://api.open-meteo.com/data/{META_MODEL.get(model, model)}/static/meta.json"
 
 
 class _Http:
