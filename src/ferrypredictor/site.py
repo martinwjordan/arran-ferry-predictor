@@ -2,7 +2,7 @@
 
 For every sailing in the next five days (UK dates): the scheduled times, CalMac's current word on
 it (from the parsed notices of active notice versions, and whether CalMac has removed it from its
-timetable), the forecast wind and waves mid-crossing, and the chance it runs from the predict job
+timetable), CalMac's word on livestock and timber (or our estimate, cargo.py), the forecast wind and waves mid-crossing, and the chance it runs from the predict job
 (site/predictions.json), when that is fresh.
 
 Wind comes from the UK Met Office 2 km model where its latest run covers the crossing, otherwise
@@ -18,7 +18,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import parse
+from . import cargo, parse
 from .collect import NOTICE_SCHEMA, ROUTE_STATUS_SCHEMA, SAILING_SCHEMA
 from .config import REPO_ROOT, load_routes
 from .forecast import FORECAST_SCHEMA
@@ -178,6 +178,7 @@ def build(now: datetime, data_dir: Path, site_dir: Path) -> dict:
     events = current_events(read_dataset(data_dir / "events", parse.EVENT_SCHEMA).to_pylist(), live)
     fc = latest_forecasts(read_dataset(data_dir / "forecasts", FORECAST_SCHEMA).to_pylist())
     chances, model = load_predictions(site_dir, now)
+    stock = cargo.restrictions(live, timetable)
 
     today = now.astimezone(UK).date()
     days = []
@@ -188,6 +189,10 @@ def build(now: datetime, data_dir: Path, site_dir: Path) -> dict:
             row = sailing_rows.get(s.key, {})
             depart, arrive = row.get("departure_at"), row.get("arrival_at")
             kinds = sorted(events.get(s.key, set()), key=EVENT_ORDER.index)
+            chance = None if depart and depart < now else chances.get(s.key)
+            cancelled = "cancelled" in kinds or s.removed
+            livestock = None if depart and depart < now else cargo.light(
+                stock.get(s.key), kinds, cancelled, chance["p"] if chance else None, chance["p_weather"] if chance else None)
             sailings.append(
                 {
                     "key": s.key,
@@ -201,7 +206,8 @@ def build(now: datetime, data_dir: Path, site_dir: Path) -> dict:
                     "calmac": kinds,
                     "wind": wind_for(s.route, depart, arrive, fc) if depart else None,
                     "waves": waves_for(s.route, depart, arrive, fc) if depart else None,
-                    "chance": None if depart and depart < now else chances.get(s.key),
+                    "chance": chance,
+                    "livestock": livestock,
                 }
             )
         sailings.sort(key=lambda x: (x["route"], x["depart"]))

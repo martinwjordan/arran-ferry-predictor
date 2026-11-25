@@ -83,6 +83,11 @@
   .arrow { display: inline-block; width: 14px; height: 14px; }
   .g1 { color: var(--ink); } .g2 { color: var(--warn); } .g3 { color: var(--bad); }
   .waves { color: var(--muted); }
+  .stock { font-size: .8rem; display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; color: var(--muted); }
+  .stock strong { font-weight: 700; }
+  .light { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; border: 2px solid currentColor; }
+  .light.calmac { background: currentColor; }
+  .l-red { color: var(--bad); } .l-amber { color: var(--warn); } .l-green { color: var(--ok); }
   .empty { color: var(--muted); font-size: .9rem; padding: 8px 4px; }
   .legend { font-size: .8rem; color: var(--muted); margin: 4px 4px 14px; }
   footer { font-size: .8rem; color: var(--muted); margin-top: 20px; line-height: 1.6; }
@@ -102,6 +107,7 @@
   <nav class="tabs" id="tabs" role="tablist" aria-label="Day"></nav>
   <section id="day" aria-live="polite"></section>
   <p class="legend"><strong>Chance it runs</strong> is our estimate from the forecast wind and how often sailings were cancelled in similar forecasts since 2024, by ferry, plus a small allowance for technical and other cancellations. Today and the next two days show a percentage; further out shows Likely (75% or more), Uncertain or Unlikely (under 40%). CalMac's word always wins: a cancelled sailing shows as cancelled. Tap a sailing for the detail.</p>
+  <p class="legend"><strong>Livestock and timber</strong>: red, not carried; amber, case by case or at risk; green, carried as normal. A filled light is CalMac's own word; a hollow one is our estimate from the forecast, and fills in once CalMac says.</p>
   <p class="legend">Wind is the strongest forecast mid-crossing during the sailing, in knots, with the direction it blows from. Gusts are coloured at 30 and 40 knots.</p>
   <footer id="footer"></footer>
 </main>
@@ -111,6 +117,10 @@
   const STATUS = { NORMAL: "Normal", BE_AWARE: "Be aware", DISRUPTIONS: "Disruptions", ALL_SAILINGS_CANCELLED: "All sailings cancelled" };
   const BADGE = { cancelled: "Cancelled", diverted: "Diverted via Troon", at_risk_diversion: "Diversion risk",
                   at_risk: "At risk", reinstated: "Reinstated", removed: "Not in CalMac timetable" };
+  const STOCK = {
+    calmac: { red: "not carried", amber: "case by case", green: "carried" },
+    estimate: { red: "unlikely", amber: "at risk", green: "likely fine" },
+  };
   const MODEL = { ukmo_uk_deterministic_2km: "Met Office 2 km", ecmwf_ifs: "ECMWF" };
   const POINTS = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
   let data = null, selected = null;
@@ -189,6 +199,9 @@
       lines.push("This far out the forecast is rougher, so this shows a band rather than a number. It firms up as the day gets closer.");
     } else lines.push("No estimate yet: the forecast doesn't reach this sailing, or the latest run hasn't come through.");
     if (s.calmac.includes("at_risk")) lines.push("CalMac has flagged this sailing as at risk; the estimate doesn't include that yet.");
+    if (s.livestock) lines.push(s.livestock.source === "calmac"
+      ? `Livestock and timber, CalMac: "${s.livestock.why}"`
+      : `Livestock and timber, our estimate: ${s.livestock.why} CalMac usually says so in a weather notice a day or two ahead.`);
     if (s.wind) lines.push(`Wind shown from the ${MODEL[s.wind.model] || s.wind.model} forecast issued ${ukDay(s.wind.issued)} ${ukTime(s.wind.issued)}.`);
     return el("div", { class: "more" }, lines.map(t => el("p", { text: t })));
   }
@@ -213,9 +226,15 @@
         `${dir} ${s.wind.speed_kn}${s.wind.gust_kn != null ? `, gusts ${s.wind.gust_kn}` : ""} kn`));
     }
     if (s.waves) wx.append(el("span", { class: "waves", text: `Waves ${Number(s.waves.height_m).toFixed(1)} m` }));
+    const lv = s.livestock;
+    const stock = lv && !s.departed ? el("div", { class: `stock l-${lv.light}`,
+        title: lv.source === "calmac" ? "CalMac's word" : "Our estimate" },
+      el("span", { class: `light ${lv.source}`, "aria-hidden": "true" }),
+      el("span", {}, "Livestock & timber: ", el("strong", { text: STOCK[lv.source][lv.light] }),
+         lv.source === "estimate" ? " (est.)" : "")) : null;
     const card = el("div", { class: `sailing${s.departed ? " past" : ""}` },
       el("div", { class: "time" }, s.depart, el("small", { text: s.arrive ? `arr ${s.arrive}` : "" })),
-      el("div", {}, el("div", { class: "dir", text: `${s.from} → ${s.to}` }), badges, wx.childNodes.length ? wx : null),
+      el("div", {}, el("div", { class: "dir", text: `${s.from} → ${s.to}` }), badges, wx.childNodes.length ? wx : null, stock),
       chance(s, cancelled));
     if (!s.departed) {
       card.setAttribute("tabindex", "0"); card.setAttribute("role", "button"); card.setAttribute("aria-expanded", "false");

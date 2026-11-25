@@ -14,6 +14,9 @@ running whatever the forecast says. Diversions and warnings are shown alongside 
 Display (design spec): today and the next two days as percentages; the two days after as bands:
 Likely (75% or more), Uncertain (40-74%), Unlikely (below 40%).
 
+Livestock and timber: a red, amber or green light per sailing (cargo.py), from CalMac's notice wording
+where it has said, otherwise estimated from the chance it runs.
+
 Output: site/predictions.json every run; data/predictions/ parts when a new forecast run arrives,
 so predictions as issued can be scored against what happened.
 """
@@ -29,6 +32,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 
+from . import cargo
 from . import features as F
 from . import parse
 from .bundle import Bundle
@@ -57,6 +61,8 @@ PREDICTION_SCHEMA = pa.schema(
         pa.field("p_non_weather", pa.float64()),
         pa.field("p_runs", pa.float64()),
         pa.field("calmac", pa.string()),
+        pa.field("livestock_light", pa.string()),
+        pa.field("livestock_source", pa.string()),
         pa.field("gust_run", TS),
         pa.field("second_run", TS),
         pa.field("model_as_of", pa.string()),
@@ -145,6 +151,7 @@ def build(now: datetime, data_dir: Path, bundle: Bundle) -> tuple[list[dict], di
     vessels = operating_vessels(read_dataset(data_dir / "route_status", ROUTE_STATUS_SCHEMA).to_pylist(), _route_overrides())
     live = active_versions(read_dataset(data_dir / "notices", NOTICE_SCHEMA).to_pylist(), now)
     events = current_events(read_dataset(data_dir / "events", parse.EVENT_SCHEMA).to_pylist(), live)
+    stock = cargo.restrictions(live, timetable)
     forecasts, runs = latest_runs(read_dataset(data_dir / "forecasts", FORECAST_SCHEMA).to_pandas())
 
     today = now.astimezone(UK).date()
@@ -186,6 +193,8 @@ def build(now: datetime, data_dir: Path, bundle: Bundle) -> tuple[list[dict], di
         p = preds.get(s.key)
         p_runs = 0.0 if word == "cancelled" else (p["p_runs"] if p else None)
         offset = (s.date - today).days
+        stock_light = cargo.light(stock.get(s.key), events.get(s.key, set()), word == "cancelled",
+                                  p_runs, p["p_weather"] if p else None)
         out.append({
             "key": s.key, "route": s.route, "date": s.date.isoformat(), "depart": s.local,
             "from": s.origin, "to": s.destination, "vessel": row["vessel"],
@@ -196,6 +205,7 @@ def build(now: datetime, data_dir: Path, bundle: Bundle) -> tuple[list[dict], di
             "p_runs": round(p_runs, 4) if p_runs is not None else None,
             "show": "percent" if offset < PERCENT_DAYS else "band",
             "band": band(p_runs) if p_runs is not None else None,
+            "livestock": stock_light,
         })
     return out, meta
 
@@ -212,7 +222,9 @@ def next_by_direction(sailings: list[dict], n: int = NEXT_PER_DIRECTION) -> list
         out.append({"route": route, "from": origin, "to": dest, "sailings": [
             {"date": s["date"], "time": s["depart"], "vessel": s["vessel"],
              "chance": None if s["p_runs"] is None else round(s["p_runs"] * 100),
-             "show": s["show"], "band": s["band"], "calmac": s["calmac"]} for s in up]})
+             "show": s["show"], "band": s["band"], "calmac": s["calmac"],
+             "livestock": (s.get("livestock") or {}).get("light"),
+             "livestock_source": (s.get("livestock") or {}).get("source")} for s in up]})
     return out
 
 
@@ -241,6 +253,8 @@ def run_predict(now: datetime, data_dir: Path, site_dir: Path, model_path: Path 
             "vessel": s["vessel"], "lead_hours": s["lead_hours"], "lead_day": s["lead_day"],
             "p_weather": s["p_weather"], "p_non_weather": s["p_non_weather"], "p_runs": s["p_runs"],
             "calmac": s["calmac"],
+            "livestock_light": (s.get("livestock") or {}).get("light"),
+            "livestock_source": (s.get("livestock") or {}).get("source"),
             "gust_run": datetime.fromisoformat(meta["runs"][F.GUST_MODEL]) if F.GUST_MODEL in meta["runs"] else None,
             "second_run": datetime.fromisoformat(meta["runs"][F.SECOND_MODEL]) if F.SECOND_MODEL in meta["runs"] else None,
             "model_as_of": meta["model_as_of"],

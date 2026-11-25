@@ -1,7 +1,8 @@
 # Chance each Arran ferry runs, for the house dashboard. Package: copy to /config/packages/house_ferry_chances.yaml.
 #
 #   sensor.house_ferry_chances: when the chances were last worked out (timestamp). Attributes: next (the next six
-#     sailings each way on 003 and 301: date, time, vessel, chance %, show percent|band, band, calmac), model_as_of,
+#     sailings each way on 003 and 301: date, time, vessel, chance %, show percent|band, band, calmac,
+#     livestock red|amber|green for livestock and timber, livestock_source calmac|estimate), model_as_of,
 #     data_through, runs. From the predictor's predictions.json on GitHub, every 20 minutes.
 #   sensor.house_ferry_chance_lowest: lowest chance (%) of any sailing in the next 24 hours that CalMac hasn't
 #     already cancelled; attribute sailing names it. Unavailable when the chances are over three hours old.

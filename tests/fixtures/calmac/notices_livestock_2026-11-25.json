@@ -1,0 +1,34 @@
+[
+ {
+  "notice_id": "routestatus-9dee8fc4-94ef-44e3-acbc-970ec7eaaead",
+  "route_code": "301",
+  "updated_at": "2026-11-25T17:55:38.105000+00:00",
+  "first_seen_at": "2026-11-25T18:07:41.401483+00:00",
+  "notice_type": "SAILING",
+  "sub_status": "BE_AWARE",
+  "reason": "weather",
+  "reason_raw": "Weather",
+  "title": "Thursday 26 - Friday 27 November",
+  "detail": "\r\nDue to adverse weather forecast of strong winds, service from the afternoon up to and including the first sailing on Friday is liable to disruption or cancellation at short notice.\r\n\r\n No livestock or timber will be carried on these crossings. Following the first crossing on Friday, livestock and timber will be carried on a case-by-case basis.\r\n\r\n",
+  "start_at": "2026-11-26T00:00:00+00:00",
+  "end_at": "2026-11-28T00:00:00+00:00",
+  "next_review_at": null,
+  "is_active": true
+ },
+ {
+  "notice_id": "routestatus-9dee8fc4-94ef-44e3-acbc-970ec7eaaead",
+  "route_code": "301",
+  "updated_at": "2026-11-25T17:32:10.611000+00:00",
+  "first_seen_at": "2026-11-25T17:47:39.504322+00:00",
+  "notice_type": "SAILING",
+  "sub_status": "BE_AWARE",
+  "reason": "weather",
+  "reason_raw": "Weather",
+  "title": "Thursday 26 November",
+  "detail": "\r\nDue to forecast adverse weather forecast of strong winds, afternoon sailings are liable to disruption or cancellation at short notice. \r\n\r\nPlease be advised no livestock or timber will be carried on these crossings.\r\n",
+  "start_at": "2026-11-26T00:00:00+00:00",
+  "end_at": "2026-11-27T00:00:00+00:00",
+  "next_review_at": null,
+  "is_active": true
+ }
+]
