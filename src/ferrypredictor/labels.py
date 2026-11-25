@@ -10,9 +10,25 @@ Rules (LABELLER_VERSION 1), for every sailing in the timetable we logged on a fu
    also drops sailings it replaces with a diversion timetable, so these are marked confidence
    "removal" and some are really diversions. A removal more than 72 hours ahead with no notice is a
    planned timetable change, not a disruption: kept, but not trained on or scored.
-3. Otherwise operated: confidence "timetable", or "at_risk" when a notice had flagged it. On a day
-   CalMac switched to a diversion timetable, some "at risk" sailings left in the timetable were in
-   fact replaced; scoring reports confident labels (notice, timetable) separately for that reason.
+3. Otherwise operated: confidence "timetable", or "at_risk" when a notice had flagged it.
+
+Diversion days (labeller version 2). When CalMac runs a route via Troon to a listed timetable
+("MV Caledonian Isles will operate via Troon to the following timetable:"), the times rarely match the
+scheduled ones, CalMac removes some replaced sailings and leaves others listed "at risk". The labeller
+follows CalMac's own FOI records for such days:
+
+- A listed diversion departure counts as run if it was still in the latest version, issued before it
+  was due, of a notice that listed it, and no notice dropped it before it was due.
+- Each run departure is paired with one scheduled sailing on the diverted route in the same direction
+  (Troon stands in for Ardrossan): closest in time first, within 150 minutes, keeping the order.
+  Paired sailings are diverted (operated leg via Troon), confidence "diversion_timetable".
+- Scheduled sailings due between the first and last run diversion departure that were not paired,
+  and were removed or flagged at risk, were not run: cancelled, by the notice's reason, confidence
+  "diversion_timetable". Sailings before or after that span keep their ordinary label (on 23 November
+  the 18:00 from Ardrossan ran before the 19:00 from Brodick went to Troon).
+- A notice's own "cancelled" or "reinstated" for a sailing still wins over pairing.
+- If a run departure cannot be paired, the unpaired at-risk or removed sailings in that span are kept
+  but marked diversion_day_unresolved: not trained on or scored.
 
 Sailings CalMac added to the timetable less than 24 hours before departure (relief and diversion
 sailings, such as Caledonian Isles running from Troon) are labelled but marked additional_unscheduled,
@@ -31,14 +47,14 @@ from pathlib import Path
 
 import pyarrow as pa
 
-from .collect import ROUTE_STATUS_SCHEMA, SAILING_SCHEMA, sailing_key
+from .collect import NOTICE_SCHEMA, ROUTE_STATUS_SCHEMA, SAILING_SCHEMA, sailing_key
 from .foi import LABEL_SCHEMA
 from .health import update_health
-from .parse import EVENT_SCHEMA, UK, Sailing, build_timetable
+from .parse import DIVERSION, EVENT_SCHEMA, UK, Sailing, build_timetable, diversion_timetables
 from .predict import _route_overrides, operating_vessels
 from .storage import append_rows, load_state, read_dataset, save_state
 
-LABELLER_VERSION = 1
+LABELLER_VERSION = 2  # 2: diversion-day pairing (25 Nov 2026)
 SOURCE = "live"
 PLANNED_AHEAD = timedelta(hours=72)
 DEFINITIVE = ("cancelled", "diverted", "reinstated")
@@ -54,8 +70,9 @@ LIVE_LABEL_SCHEMA = pa.schema(
 )
 ADDED_LATE = timedelta(hours=24)
 RAN = ("operated", "diverted")
-NOT_SCORED = ("planned_timetable_change", "additional_unscheduled")  # exclusions left out of scoring
-CONFIDENT = ("notice", "timetable")
+NOT_SCORED = ("planned_timetable_change", "additional_unscheduled", "diversion_day_unresolved")  # left out of scoring
+CONFIDENT = ("notice", "timetable", "diversion_timetable")
+PAIR_WINDOW = 150  # minutes between a diversion departure and the scheduled sailing it replaces
 
 
 def departure_of(s: Sailing) -> datetime:
@@ -159,18 +176,116 @@ def added_late(key: str, departure: datetime, seen: dict[str, datetime], log_sta
     return bool(t and log_start and t > log_start + timedelta(hours=1) and departure - t < ADDED_LATE)
 
 
+def _at(day: date, local: str) -> datetime:
+    return datetime(day.year, day.month, day.day, int(local[:2]), int(local[3:]), tzinfo=UK)
+
+
+def diversion_runs(notices: list[dict], day: date) -> dict[str, list[dict]]:
+    """Per diverted route, the listed diversion departures on this day that went ahead.
+
+    Each is {origin, local, minutes, reason}. Run means: still listed in the latest pre-departure
+    version of at least one notice, and not dropped before departure by any notice that had listed it.
+    """
+    versions: dict[str, list[tuple[datetime, list[dict], str | None]]] = {}
+    for n in notices:
+        if n.get("notice_type") not in (None, "SAILING") or n.get("updated_at") is None:
+            continue
+        items = [d for d in diversion_timetables(n) if d["day"] == day]
+        versions.setdefault(n["notice_id"], []).append((n["updated_at"], items, n.get("reason")))
+    candidates: dict[tuple, str | None] = {}
+    for vs in versions.values():
+        vs.sort(key=lambda v: v[0])
+        for _, items, reason in vs:
+            for d in items:
+                candidates.setdefault((d["route"], d["origin"], d["local"]), reason)
+    out: dict[str, list[dict]] = {}
+    for (route, origin, local), reason in candidates.items():
+        due = _at(day, local)
+        support = dropped = False
+        for vs in versions.values():
+            before = [v for v in vs if v[0] < due]
+            if not before:
+                continue
+            listed = [(route, origin, local) in {(d["route"], d["origin"], d["local"]) for d in v[1]} for v in before]
+            if listed[-1]:
+                support = True
+            elif any(listed):
+                dropped = True
+        if support and not dropped:
+            out.setdefault(route, []).append({"origin": origin, "local": local, "reason": reason,
+                                              "minutes": int(local[:2]) * 60 + int(local[3:])})
+    for v in out.values():
+        v.sort(key=lambda d: d["minutes"])
+    return out
+
+
+def pair_diversions(route: str, runs: list[dict], sailings: list[Sailing]) -> tuple[dict[str, dict], list[dict]]:
+    """Pair run diversion departures with the scheduled sailings they replaced: closest first, same
+    direction, within PAIR_WINDOW, never crossing an earlier pair. Returns (pairs by sailing key, unpaired runs)."""
+    divert_to, replaces = DIVERSION.get(route, (None, None))
+    options = []
+    for i, d in enumerate(runs):
+        origin = replaces if d["origin"] == divert_to else d["origin"]
+        for s in sailings:
+            gap = abs(s.minutes - d["minutes"])
+            if s.origin == origin and gap <= PAIR_WINDOW:
+                options.append((gap, s.minutes, i, s))
+    pairs: dict[str, dict] = {}
+    used: set[int] = set()
+    for _, _, i, s in sorted(options, key=lambda o: o[:2]):
+        if i in used or s.key in pairs:
+            continue
+        d = runs[i]
+        if any(p["origin_sched"] == s.origin and (p["minutes"] - d["minutes"]) * (p["sailing"].minutes - s.minutes) < 0
+               for p in pairs.values()):
+            continue  # would cross an existing pair in the same direction
+        used.add(i)
+        pairs[s.key] = {**d, "sailing": s, "origin_sched": s.origin}
+    return pairs, [d for i, d in enumerate(runs) if i not in used]
+
+
+def apply_diversions(day: date, timetable: list[Sailing], labelled: dict[str, dict], notices: list[dict],
+                     definitive: dict[str, dict], reasons: dict[str, str], flagged: set[str]) -> None:
+    """Overwrite labels for sailings on a diverted route's day (see module docstring)."""
+    for route, runs in diversion_runs(notices, day).items():
+        divert_to, replaces = DIVERSION.get(route, (None, None))
+        sailings = [s for s in timetable if s.route == route and s.date == day and s.key in labelled
+                    and labelled[s.key]["exclusion"] != "planned_timetable_change"
+                    and (definitive.get(s.key) or {}).get("event_type") not in ("cancelled", "reinstated")]
+        pairs, unpaired = pair_diversions(route, runs, sailings)
+        lo, hi = runs[0]["minutes"], runs[-1]["minutes"]
+        for s in sailings:
+            out = labelled[s.key]
+            if s.key in pairs:
+                port = divert_to if s.origin == replaces else s.origin
+                dest = s.destination if s.origin == replaces else divert_to
+                out.update(label="diverted", operated_leg=leg(port, dest), train=True, exclusion=None,
+                           confidence="notice" if out["confidence"] == "notice" else "diversion_timetable")
+            elif lo <= s.minutes <= hi and (s.key in flagged or s.removed) and out["confidence"] != "notice":
+                if unpaired:
+                    out.update(train=False, exclusion="diversion_day_unresolved", confidence="diversion_unresolved")
+                else:
+                    label = cancelled_label(reasons.get(s.key) or runs[0]["reason"])
+                    out.update(label=label, operated_leg=None, confidence="diversion_timetable",
+                               train=label != "cancelled_unknown",
+                               exclusion="cancellation_reason_unknown" if label == "cancelled_unknown" else None)
+
+
 def build_labels(day: date, timetable: list[Sailing], events: list[dict], status_rows: list[dict],
                  now: datetime, overrides: dict[str, str] | None = None,
-                 seen: dict[str, datetime] | None = None, log_start: datetime | None = None) -> list[dict]:
+                 seen: dict[str, datetime] | None = None, log_start: datetime | None = None,
+                 notices: list[dict] | None = None) -> list[dict]:
     overrides, seen = overrides or {}, seen or {}
     definitive, reasons = latest_definitive(events), latest_reason(events)
     flagged = {e["sailing_key"] for e in events if e.get("sailing_key")}
+    day_sailings = [s for s in timetable if s.date == day]
+    labelled = {s.key: label_sailing(s, definitive.get(s.key), reasons.get(s.key), s.key in flagged) for s in day_sailings}
+    if notices:
+        apply_diversions(day, day_sailings, labelled, notices, definitive, reasons, flagged)
     rows = []
-    for s in timetable:
-        if s.date != day:
-            continue
+    for s in day_sailings:
         departure = departure_of(s)
-        out = label_sailing(s, definitive.get(s.key), reasons.get(s.key), s.key in flagged)
+        out = labelled[s.key]
         if added_late(s.key, departure, seen, log_start):
             out.update(train=False, exclusion="additional_unscheduled")
         rows.append({
@@ -226,9 +341,10 @@ def run_labels(now: datetime, data_dir: Path, site_dir: Path) -> dict:
             overrides = _route_overrides()
         except Exception:  # config missing in some test setups
             overrides = {}
+        notices = read_dataset(data_dir / "notices", NOTICE_SCHEMA).to_pylist()
         seen, log_start = first_seen(sailing_rows)
         for d in todo:
-            rows += build_labels(d, timetable, events, status, now, overrides, seen, log_start)
+            rows += build_labels(d, timetable, events, status, now, overrides, seen, log_start, notices)
             done.add(d.isoformat())
         append_rows(data_dir / "labels_live", rows, LIVE_LABEL_SCHEMA, now)
     save_state(state_path, {"labeller_version": LABELLER_VERSION, "days": sorted(done)})

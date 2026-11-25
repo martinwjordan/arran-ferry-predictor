@@ -193,3 +193,44 @@ def test_new_parser_version_reparses_everything(tmp_path, monkeypatch):
     monkeypatch.setattr(parse, "PARSER_VERSION", parse.PARSER_VERSION + 1)
     again = parse.run_parse(NOW, data, tmp_path / "site")
     assert again["reparsed_all"] and again["versions_parsed"] == 10
+
+
+# --- 24 November 2026: dashes in list lines, and raw diversion timetables ----------------------
+
+
+def load_notices_24():
+    out = []
+    for n in json.loads((FIX / "notices_2026-11-24.json").read_text()):
+        for k in ("updated_at", "first_seen_at", "start_at", "end_at", "next_review_at"):
+            n[k] = _dt(n.get(k))
+        out.append(n)
+    return out
+
+
+def notice_24(route, updated_hhmm, day="2026-11-24"):
+    found = [n for n in load_notices_24()
+             if n["route_code"] == route and f"{n['updated_at']:%Y-%m-%d %H:%M}" == f"{day} {updated_hhmm}"]
+    assert len(found) == 1
+    return found[0]
+
+
+def test_list_lines_with_a_dash_between_port_and_time():
+    n = notice_24("301", "05:20")  # "**Depart** Troon - 10:15" under "the following services are cancelled:"
+    assert {(D24, "Troon", "10:15"), (D24, "Brodick", "12:05")} <= events(n, "cancelled")
+    assert parse.LIST_DEPART_RE.match("Depart Brodick – 13:20")  # en dash, as in the 11:53 notice
+
+
+def test_diversion_timetables_lists_departures_as_written():
+    morning = [(d["route"], d["day"], d["origin"], d["local"]) for d in parse.diversion_timetables(notice_24("003", "05:05"))]
+    assert morning == [("003", D24, "Troon", "07:00"), ("003", D24, "Brodick", "09:10"), ("003", D24, "Troon", "11:30")]
+    midday = [(d["origin"], d["local"]) for d in parse.diversion_timetables(notice_24("003", "11:53"))]
+    assert midday == [("Troon", "11:30"), ("Brodick", "13:20"), ("Troon", "17:00")]
+    # The Troon route's notice repeats Caledonian Isles' timetable: it is still route 003's diversion.
+    assert {d["route"] for d in parse.diversion_timetables(notice_24("301", "11:53"))} == {"003"}
+    # No diversion list in the plain cancellation notice.
+    assert parse.diversion_timetables(notice_24("301", "05:20")) == []
+
+
+def test_evening_diversion_for_overnight_berthing():
+    n = notice_24("003", "16:05", day="2026-11-23")  # "... before diverting to Troon for overnight berthing:"
+    assert [(d["route"], d["day"], d["origin"], d["local"]) for d in parse.diversion_timetables(n)] == [("003", D23, "Brodick", "19:00")]

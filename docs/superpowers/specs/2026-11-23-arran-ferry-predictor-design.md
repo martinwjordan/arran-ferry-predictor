@@ -253,7 +253,7 @@ All data lives in the repo as append-only Parquet files, partitioned by month.
 
 ## 15. Changes since sign-off (24 November 2026)
 
-- **Outcome labels:** CalMac's FOI 4405 release (2007 to September 2026) is the main training source, kept in a private repo. Live labels come from notices first, then timetable removals, else operated, once a day has settled; the Claude review of unresolved text is still to come (diversion days are the main gap).
+- **Outcome labels:** CalMac's FOI 4405 release (2007 to September 2026) is the main training source, kept in a private repo. Live labels come from notices first, then timetable removals, else operated, once a day has settled. Diversion days (labeller version 2, 25 November 2026) pair CalMac's listed Troon timetable with the scheduled Ardrossan sailings as CalMac's FOI records do: paired sailings are diverted, unpaired at-risk or removed sailings inside the diversion span are cancelled, and an unpairable departure marks the span unresolved (not trained or scored). The Claude review of other unresolved text is still to come.
 - **Model:** logistic regression plus a gust-band rule, stacked, retrained monthly; GFS and ECMWF 0.25 degree as inputs because they have archives back to 2024. Technical and other risk is a rolling 180-day rate per ferry.
 - **Display:** percentages for today and the next two days, bands after that; CalMac's word always wins.
 - **Scoring:** a live scorecard per lead day against "assume it sails" and climatology, from the archived predictions and live labels.

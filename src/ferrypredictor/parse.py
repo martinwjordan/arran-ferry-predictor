@@ -9,6 +9,8 @@ Event types: cancelled, diverted, at_risk, at_risk_diversion, reinstated, review
 - "service is liable to disruption ..." with no sailing named applies to the whole day on that route.
 - Diversion timetables ("will operate via Troon to the following timetable:") are matched on exact
   time, or to a unique scheduled sailing within 30 minutes; anything looser is left for review.
+  diversion_timetables() also returns the raw lists, which the labeller pairs with the whole day.
+- List lines may put a dash between port and time ("**Depart** Brodick – 13:20").
 
 Sentences that name a sailing but match no rule, or name a sailing the timetable does not have,
 go to data/unparsed/ for review. They are never guessed.
@@ -32,7 +34,7 @@ from .collect import NOTICE_SCHEMA, SAILING_SCHEMA, sailing_key
 from .health import update_health
 from .storage import append_rows, load_state, read_dataset, save_state
 
-PARSER_VERSION = 1
+PARSER_VERSION = 2  # 2: list lines may have a dash between port and time (25 Nov 2026)
 UK = ZoneInfo("Europe/London")
 NEAREST_MINUTES = 30
 # Where each route's mainland sailings go when diverted, and the port they replace.
@@ -88,8 +90,10 @@ MENTION_RE = re.compile(
 AFTER_MENTION_DATE_RE = re.compile(
     rf"^\s*(?:on|this)\s+({'|'.join(WEEKDAYS)})(?:\s+(\d{{1,2}})(?:st|nd|rd|th)?(?:\s+({'|'.join(MONTHS)}))?)?", re.I
 )
-LIST_DEPART_RE = re.compile(rf"^Depart\s+{PORT}\s+{TIME}$", re.I)
-LIST_ARRIVE_RE = re.compile(rf"^Arrive\s+{PORT}\s+{TIME}$", re.I)
+LIST_SEP = r"\s*[-\u2013\u2014:]?\s*"  # "Depart Troon 10:15", "Depart Troon - 10:15", "Depart Brodick – 13:20"
+LIST_DEPART_RE = re.compile(rf"^Depart\s+{PORT}{LIST_SEP}{TIME}$", re.I)
+LIST_ARRIVE_RE = re.compile(rf"^Arrive\s+{PORT}{LIST_SEP}{TIME}$", re.I)
+DIVERSION_PORT_RE = re.compile(r"\b(?:via|from|to)\s+(Troon|Ardrossan)\b", re.I)
 REVIEW_RE = re.compile(rf"\breview\b.*?\b(?:at|around)\s+(?:approximately\s+|about\s+)?{TIME}", re.I)
 CANCEL_REF_RE = re.compile(r"^(?:as a result of|following|due to)\s+the\s+cancellation\s+of\s+(.+?),\s*(.*)$", re.I)
 SKIP_RE = re.compile(r"\b(?:bus|buses|coach|taxi|train|kiosk|continue to operate|continue operating)\b", re.I)
@@ -416,6 +420,44 @@ class _Notice:
                     continue
             for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z])", text):
                 self.sentence(sentence.strip(), section)
+
+
+def diversion_timetables(notice: dict) -> list[dict]:
+    """Departures CalMac lists under a diversion heading ("MV Caledonian Isles will operate via Troon
+    to the following timetable:"), as {route, day, origin, local}.
+
+    route is the route being diverted (003 for a list via Troon); origin is the port as listed
+    (Troon or Brodick). Times are not matched to the timetable here: the labeller pairs them with
+    scheduled sailings once the whole day is known.
+    """
+    stamp = notice.get("updated_at") or notice.get("first_seen_at")
+    if stamp is None:
+        return []
+    ref = stamp.astimezone(UK).date()
+    section = title_date(notice.get("title") or "", ref)
+    out, route = [], None
+    for line in (notice.get("detail") or "").replace("\r", "").split("\n"):
+        if not line.strip():
+            continue
+        new_section = header_date(line, ref)
+        if new_section:
+            section, route = new_section, None
+            continue
+        text = _plain(line)
+        depart = LIST_DEPART_RE.match(text)
+        if route and depart:
+            if section:
+                out.append({"route": route, "day": section, "origin": depart.group(1).title(),
+                            "local": _hhmm(depart.group(2), depart.group(3))})
+            continue
+        if route and LIST_ARRIVE_RE.match(text):
+            continue
+        route = None
+        if text.endswith(":") and classify(text) == "diverted":
+            port = DIVERSION_PORT_RE.search(text)
+            port = port.group(1).title() if port else "Troon"
+            route = next((r for r, (to, _) in DIVERSION.items() if to == port), None)
+    return out
 
 
 def parse_notice(notice: dict, timetable: list[Sailing], parsed_at: datetime) -> tuple[list[dict], list[dict]]:
