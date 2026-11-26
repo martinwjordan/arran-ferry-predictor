@@ -3,10 +3,10 @@
   "events": {},
   "parser_version": 2,
   "reparsed_all": false,
-  "unparsed": 2,
-  "versions_parsed": 1
+  "unparsed": 0,
+  "versions_parsed": 0
  },
  "job": "parse",
- "last_success": "2026-11-26T14:27:41+00:00",
- "updated": "2026-11-26T14:27:41+00:00"
+ "last_success": "2026-11-26T14:47:36+00:00",
+ "updated": "2026-11-26T14:47:36+00:00"
 }
