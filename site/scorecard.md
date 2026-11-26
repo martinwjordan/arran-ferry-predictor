@@ -1,6 +1,6 @@
 # Live scorecard
 
-Built 2026-11-26T12:47:36+00:00. Labels 2026-11-24 to 2026-11-24: 16 sailings labelled, 3 scored. 0 predictions left out because CalMac had already cancelled.
+Built 2026-11-26T13:07:43+00:00. Labels 2026-11-24 to 2026-11-24: 16 sailings labelled, 3 scored. 0 predictions left out because CalMac had already cancelled.
 
 | Lead day | Sailings | Ran | Mean chance | Brier | Assume sails | Climatology | Skill vs climatology | AUC |
 |---|---|---|---|---|---|---|---|---|
