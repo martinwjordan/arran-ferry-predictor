@@ -1,10 +1,10 @@
 {
  "details": {
-  "labelled": 0,
-  "labels_through": null,
-  "scored": 0
+  "labelled": 16,
+  "labels_through": "2026-11-24",
+  "scored": 3
  },
  "job": "score",
- "last_success": "2026-11-25T23:47:45+00:00",
- "updated": "2026-11-25T23:47:45+00:00"
+ "last_success": "2026-11-26T00:07:41+00:00",
+ "updated": "2026-11-26T00:07:41+00:00"
 }

@@ -1,15 +1,82 @@
 {
- "generated_at": "2026-11-25T23:47:45+00:00",
- "labels_from": null,
- "labels_through": null,
- "labelled_sailings": 0,
- "scored_sailings": 0,
+ "generated_at": "2026-11-26T00:07:41+00:00",
+ "labels_from": "2026-11-24",
+ "labels_through": "2026-11-24",
+ "labelled_sailings": 16,
+ "scored_sailings": 3,
  "left_out_calmac_already_cancelled": 0,
- "by_lead": {},
- "bands": {},
- "confident_only": {
-  "by_lead": {},
-  "bands": {}
+ "by_lead": {
+  "1": {
+   "sailings": 3,
+   "ran": 0.6667,
+   "mean_chance": 0.7758,
+   "brier": 0.2157,
+   "brier_assume_sails": 0.3333,
+   "brier_climatology": 0.2497,
+   "skill_vs_assume_sails": null,
+   "skill_vs_climatology": null,
+   "auc": 1.0
+  }
  },
- "misses": []
+ "bands": {
+  "Likely": {
+   "sailings": 3,
+   "ran": 0.667,
+   "mean_chance": 0.776
+  },
+  "Uncertain": {
+   "sailings": 0,
+   "ran": null,
+   "mean_chance": null
+  },
+  "Unlikely": {
+   "sailings": 0,
+   "ran": null,
+   "mean_chance": null
+  }
+ },
+ "confident_only": {
+  "by_lead": {
+   "1": {
+    "sailings": 2,
+    "ran": 0.5,
+    "mean_chance": 0.764,
+    "brier": 0.3035,
+    "brier_assume_sails": 0.5,
+    "brier_climatology": 0.3605,
+    "skill_vs_assume_sails": null,
+    "skill_vs_climatology": null,
+    "auc": 1.0
+   }
+  },
+  "bands": {
+   "Likely": {
+    "sailings": 2,
+    "ran": 0.5,
+    "mean_chance": 0.764
+   },
+   "Uncertain": {
+    "sailings": 0,
+    "ran": null,
+    "mean_chance": null
+   },
+   "Unlikely": {
+    "sailings": 0,
+    "ran": null,
+    "mean_chance": null
+   }
+  }
+ },
+ "misses": [
+  {
+   "date": "2026-11-24",
+   "route": "003",
+   "depart": "16:40",
+   "vessel": "CALEDONIAN ISLES",
+   "lead_day": 1,
+   "chance": 0.748,
+   "label": "cancelled_weather",
+   "confidence": "diversion_timetable"
+  }
+ ]
 }
