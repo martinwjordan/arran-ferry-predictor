@@ -19,9 +19,11 @@ CalMac's word on a sailing (from active SAILING notices):
 
 Which crossings a notice means ("these crossings") is read from the notice:
 - days: the notice's start and end (UK dates), else the date in its title;
-- start: "afternoon" moves the start to 12:00 on the first day, "evening" to 17:00;
+- start: "afternoon" moves the start to 12:00 on the first day, "evening" to 17:00, and "from the first
+  sailing on Friday" to that sailing;
 - end: "up to and including the first sailing on Friday" ends it at that day's first sailing;
-- case-by-case after "following the first crossing on Friday" covers that day's later sailings.
+- case-by-case after "following the first crossing on Friday" covers that day's later sailings, and
+  overrides the notice's window (it is the more specific statement).
 
 The light for each sailing:
 - red: CalMac bars livestock and timber, or has cancelled the sailing (CalMac);
@@ -61,6 +63,7 @@ BARRED_RE = re.compile(
 CARRIED_RE = re.compile(r"\bwill\s+(?:now\s+|again\s+)?be\s+(?:carried|conveyed|accepted)\b", re.I)
 WD = "|".join(WEEKDAYS)
 UNTIL_FIRST_RE = re.compile(rf"\bup\s+to\s+and\s+including\s+the\s+first\s+(?:sailing|crossing)\s+on\s+({WD})\b", re.I)
+FROM_FIRST_RE = re.compile(rf"\bfrom\s+the\s+first\s+(?:sailing|crossing)\s+on\s+({WD})\b", re.I)
 AFTER_FIRST_RE = re.compile(rf"\b(?:following|after)\s+the\s+first\s+(?:sailing|crossing)\s+on\s+({WD})\b", re.I)
 AFTERNOON_RE = re.compile(r"\bafternoon\b", re.I)
 EVENING_RE = re.compile(r"\bevening\b", re.I)
@@ -124,6 +127,12 @@ def notice_restrictions(notice: dict, timetable: list[Sailing]) -> dict[str, dic
         start_min = 17 * 60
     elif AFTERNOON_RE.search(context) and not MORNING_RE.search(context):
         start_min = 12 * 60
+    start_cut: tuple[date, int] | None = None
+    since = FROM_FIRST_RE.search(context)
+    if since:
+        d = parse._weekday_near(since.group(1), days[0])
+        if d in first_of:
+            start_cut = (d, first_of[d].minutes)
     end_cut: tuple[date, int] | None = None
     until = UNTIL_FIRST_RE.search(context)
     if until:
@@ -133,6 +142,8 @@ def notice_restrictions(notice: dict, timetable: list[Sailing]) -> dict[str, dic
 
     def in_window(s: Sailing) -> bool:
         if s.date == days[0] and s.minutes < start_min:
+            return False
+        if start_cut and (s.date, s.minutes) < start_cut:
             return False
         if end_cut and (s.date, s.minutes) > end_cut:
             return False
@@ -146,18 +157,26 @@ def notice_restrictions(notice: dict, timetable: list[Sailing]) -> dict[str, dic
             out[s.key] = {"status": status, "sentence": sentence, "notice_id": notice["notice_id"],
                           "kinds": sorted({m.lower() for m in CARGO_RE.findall(sentence)})}
 
+    # Sentences anchored to a crossing ("Following the first crossing on Friday, ... case-by-case") are more
+    # specific than the notice's window, so they override it: on 26 November CalMac wrote "service from the first
+    # sailing on Friday is liable to disruption ... No livestock or timber will be carried on this crossing.
+    # Following the first crossing on Friday, livestock and timber will be carried on a case-by-case basis."
+    anchored = []
     for sentence, status in said:
         after = AFTER_FIRST_RE.search(sentence)
         if after:
-            d = parse._weekday_near(after.group(1), days[0])
-            first = first_of.get(d)
-            for s in on_route:
-                if s.date == d and first and s.minutes > first.minutes:
-                    put(s, status, sentence)
+            anchored.append((after, sentence, status))
             continue
         for s in on_route:
             if in_window(s):
                 put(s, status, sentence)
+    for after, sentence, status in anchored:
+        d = parse._weekday_near(after.group(1), days[0])
+        first = first_of.get(d)
+        for s in on_route:
+            if s.date == d and first and s.minutes > first.minutes:
+                out[s.key] = {"status": status, "sentence": sentence, "notice_id": notice["notice_id"],
+                              "kinds": sorted({m.lower() for m in CARGO_RE.findall(sentence)})}
     return out
 
 

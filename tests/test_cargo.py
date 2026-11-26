@@ -93,3 +93,17 @@ def test_lights():
     assert cargo.light(None, set(), False, 0.95, 0.02) == {"light": "green", "source": "estimate",
                                                            "why": "No sign of restrictions in the forecast."}
     assert cargo.light(None, set(), False, 0.748, 0.05)["light"] == "green"  # judged on the whole % shown: 75%
+
+
+def test_friday_notice_bars_only_the_first_crossing():
+    """26 Nov 19:41: "service from the first sailing on Friday is liable to disruption ... No livestock or timber
+    will be carried on this crossing. Following the first crossing on Friday, ... case-by-case basis."
+    CalMac dated it 26 to 28 November, so Thursday must stay out of it too."""
+    n = json.loads((FIX / "notices_livestock_2026-11-26.json").read_text())
+    n = next(x for x in n if x["title"] == "Friday 27 November")
+    for k in ("updated_at", "first_seen_at", "start_at", "end_at", "next_review_at"):
+        n[k] = datetime.fromisoformat(n[k]) if n.get(k) else None
+    got = by_slot(cargo.notice_restrictions(n, timetable()))
+    assert got == {("2026-11-27", "07:30"): "barred", ("2026-11-27", "10:15"): "case_by_case",
+                   ("2026-11-27", "12:05"): "case_by_case", ("2026-11-27", "14:10"): "case_by_case",
+                   ("2026-11-27", "16:00"): "case_by_case", ("2026-11-27", "18:10"): "case_by_case"}
