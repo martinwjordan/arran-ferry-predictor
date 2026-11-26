@@ -1,0 +1,7 @@
+# Data quarantine: sailings due, and removals or predictions made, in these windows are left out of
+# training and the scorecard (checks.py). The sanity gate adds windows automatically to
+# data/state/quarantine.json while it is failing; add one here by hand when a fault is found later.
+windows:
+  - start: "2026-11-26T14:47:00+00:00"
+    end: "2026-11-27T00:00:00+00:00"
+    reason: "CalMac's timetable feed returned no sailings from 14:47; every future sailing was logged as removed and shown cancelled until the fix (b98d266) and data repair (c8139f2)."

@@ -18,7 +18,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import cargo, parse
+from . import cargo, checks, parse
 from .collect import NOTICE_SCHEMA, ROUTE_STATUS_SCHEMA, SAILING_SCHEMA
 from .config import REPO_ROOT, load_routes
 from .forecast import FORECAST_SCHEMA
@@ -168,14 +168,15 @@ def route_summaries(status_rows: list[dict], live: dict[str, dict]) -> list[dict
 
 def build(now: datetime, data_dir: Path, site_dir: Path) -> dict:
     data_dir, site_dir = Path(data_dir), Path(site_dir)
-    timetable = parse.build_timetable(read_dataset(data_dir / "sailings", SAILING_SCHEMA).to_pylist())
+    all_events = read_dataset(data_dir / "events", parse.EVENT_SCHEMA).to_pylist()
+    timetable = checks.timetable(read_dataset(data_dir / "sailings", SAILING_SCHEMA).to_pylist(), all_events)
     sailing_rows = {}
     for r in read_dataset(data_dir / "sailings", SAILING_SCHEMA).to_pylist():
         if r.get("departure_at"):
             sailing_rows[r.get("sailing_key") or parse.sailing_key(r["route_code"], r["origin"], r["departure_at"])] = r
     notices = read_dataset(data_dir / "notices", NOTICE_SCHEMA).to_pylist()
     live = active_versions(notices, now)
-    events = current_events(read_dataset(data_dir / "events", parse.EVENT_SCHEMA).to_pylist(), live)
+    events = current_events(all_events, live)
     fc = latest_forecasts(read_dataset(data_dir / "forecasts", FORECAST_SCHEMA).to_pylist())
     chances, model = load_predictions(site_dir, now)
     stock = cargo.restrictions(live, timetable)
@@ -190,7 +191,8 @@ def build(now: datetime, data_dir: Path, site_dir: Path) -> dict:
             depart, arrive = row.get("departure_at"), row.get("arrival_at")
             kinds = sorted(events.get(s.key, set()), key=EVENT_ORDER.index)
             chance = None if depart and depart < now else chances.get(s.key)
-            cancelled = "cancelled" in kinds or s.removed
+            removed = s.removed and s.removal_confirmed  # unconfirmed removals are not cancellations (checks.py)
+            cancelled = "cancelled" in kinds or removed
             livestock = None if depart and depart < now else cargo.light(
                 stock.get(s.key), kinds, cancelled, chance["p"] if chance else None, chance["p_weather"] if chance else None)
             sailings.append(
@@ -202,7 +204,8 @@ def build(now: datetime, data_dir: Path, site_dir: Path) -> dict:
                     "depart": s.local,
                     "arrive": arrive.astimezone(UK).strftime("%H:%M") if arrive else None,
                     "departed": bool(depart and depart < now),
-                    "removed": s.removed,
+                    "removed": removed,
+                    "missing": s.removed and not s.removal_confirmed,
                     "calmac": kinds,
                     "wind": wind_for(s.route, depart, arrive, fc) if depart else None,
                     "waves": waves_for(s.route, depart, arrive, fc) if depart else None,
@@ -225,7 +228,15 @@ def build(now: datetime, data_dir: Path, site_dir: Path) -> dict:
         "days": days,
         "model": model,
         "health": {k: {"last_success": v.get("last_success"), "error": v.get("error")} for k, v in health.items()},
+        "sanity": _sanity(site_dir),
     }
+
+
+def _sanity(site_dir: Path) -> dict | None:
+    try:
+        return json.loads((Path(site_dir) / "sanity.json").read_text())
+    except (OSError, ValueError):
+        return None
 
 
 def run_site(now: datetime, data_dir: Path, site_dir: Path, out_dir: Path) -> dict:

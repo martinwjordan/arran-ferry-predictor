@@ -44,6 +44,8 @@ jobs:
         run: python -m ferrypredictor parse
       - name: Chance each sailing runs
         run: python -m ferrypredictor predict
+      - name: Sanity checks (feed, timetable, chances, forecasts)
+        run: python -m ferrypredictor sanity
       - name: Label settled days
         run: python -m ferrypredictor labels
       - name: Score the chances against what happened
@@ -56,6 +58,9 @@ jobs:
         run: gh workflow run publish.yml --ref main -R "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Fail the run if the data failed its checks
+        # After the commit and page rebuild, so the banner goes out; three failed runs in a row raise an issue.
+        run: python -m ferrypredictor gate
       - name: Raise an issue after three failures in a row
         if: failure()
         run: bash scripts/issue_on_repeated_failure.sh collect.yml

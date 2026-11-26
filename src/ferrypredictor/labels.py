@@ -50,11 +50,12 @@ import pyarrow as pa
 from .collect import NOTICE_SCHEMA, ROUTE_STATUS_SCHEMA, SAILING_SCHEMA, sailing_key
 from .foi import LABEL_SCHEMA
 from .health import update_health
+from . import checks
 from .parse import DIVERSION, EVENT_SCHEMA, UK, Sailing, build_timetable, diversion_timetables
 from .predict import _route_overrides, operating_vessels
 from .storage import append_rows, load_state, read_dataset, save_state
 
-LABELLER_VERSION = 2  # 2: diversion-day pairing (25 Nov 2026)
+LABELLER_VERSION = 3  # 2: diversion-day pairing (25 Nov 2026); 3: removals need a notice, quarantine (26 Nov 2026)
 SOURCE = "live"
 PLANNED_AHEAD = timedelta(hours=72)
 DEFINITIVE = ("cancelled", "diverted", "reinstated")
@@ -70,7 +71,8 @@ LIVE_LABEL_SCHEMA = pa.schema(
 )
 ADDED_LATE = timedelta(hours=24)
 RAN = ("operated", "diverted")
-NOT_SCORED = ("planned_timetable_change", "additional_unscheduled", "diversion_day_unresolved")  # left out of scoring
+NOT_SCORED = ("planned_timetable_change", "additional_unscheduled", "diversion_day_unresolved",
+              "removal_unconfirmed", "data_fault")  # left out of scoring
 CONFIDENT = ("notice", "timetable", "diversion_timetable")
 PAIR_WINDOW = 150  # minutes between a diversion departure and the scheduled sailing it replaces
 
@@ -144,6 +146,9 @@ def label_sailing(s: Sailing, definitive: dict | None, reason: str | None, flagg
         operated_leg, confidence = None, "removal"
         if departure - s.removed_at > PLANNED_AHEAD and not flagged:
             label, exclusion = "planned_change", "planned_timetable_change"
+        elif not s.removal_confirmed:
+            # Dropped from CalMac's feed with no notice behind it, or in a mass drop: we don't know (checks.py)
+            label, exclusion = "unknown", "removal_unconfirmed"
         else:
             label = cancelled_label(reason)
     else:
@@ -312,6 +317,14 @@ def read_live_labels(data_dir: Path) -> list[dict]:
     return sorted(best.values(), key=lambda r: r["departure_at"])
 
 
+def quarantine(rows: list[dict], timetable: list[Sailing], windows: list[dict]) -> None:
+    """Leave out of training and scoring any sailing due, or removed, while the data was known to be faulty."""
+    removed_at = {s.key: s.removed_at for s in timetable if s.removed}
+    for r in rows:
+        if checks.quarantined(r.get("departure_at"), windows) or checks.quarantined(removed_at.get(r["sailing_key"]), windows):
+            r["exclusion"], r["train"] = "data_fault", False
+
+
 def run_labels(now: datetime, data_dir: Path, site_dir: Path) -> dict:
     data_dir = Path(data_dir)
     state_path = data_dir / "state" / "labels_live.json"
@@ -331,11 +344,11 @@ def run_labels(now: datetime, data_dir: Path, site_dir: Path) -> dict:
 
     rows: list[dict] = []
     if todo:
-        timetable = build_timetable(sailing_rows)
         events = read_dataset(data_dir / "events", EVENT_SCHEMA).to_pylist()
         if events:
             newest = max(e["parser_version"] for e in events)
             events = [e for e in events if e["parser_version"] == newest]
+        timetable = checks.confirm_removals(build_timetable(sailing_rows), events)
         status = read_dataset(data_dir / "route_status", ROUTE_STATUS_SCHEMA).to_pylist()
         try:
             overrides = _route_overrides()
@@ -346,6 +359,7 @@ def run_labels(now: datetime, data_dir: Path, site_dir: Path) -> dict:
         for d in todo:
             rows += build_labels(d, timetable, events, status, now, overrides, seen, log_start, notices)
             done.add(d.isoformat())
+        quarantine(rows, timetable, checks.quarantine_windows(data_dir))
         append_rows(data_dir / "labels_live", rows, LIVE_LABEL_SCHEMA, now)
     save_state(state_path, {"labeller_version": LABELLER_VERSION, "days": sorted(done)})
 

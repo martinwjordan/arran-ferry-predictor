@@ -1,4 +1,4 @@
-"""Command line: python -m ferrypredictor collect | parse | predict | labels | score | ais | forecast | archive | backfill | site"""
+"""Command line: python -m ferrypredictor collect | parse | predict | sanity | gate | labels | score | ais | forecast | archive | backfill | site"""
 
 from __future__ import annotations
 
@@ -28,6 +28,8 @@ REQUIRED = {
     "predict": [],
     "labels": [],
     "score": [],
+    "sanity": [],
+    "gate": [],
 }
 
 
@@ -95,6 +97,12 @@ def _score(env: dict, now: datetime) -> dict:
     return run_score(now, DATA_DIR, SITE_DIR)
 
 
+def _sanity(env: dict, now: datetime) -> dict:
+    from .checks import run_sanity
+
+    return run_sanity(now, DATA_DIR, SITE_DIR)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="ferrypredictor")
     parser.add_argument("job", choices=sorted(REQUIRED))
@@ -106,8 +114,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     env = {k: os.environ[k] for k in REQUIRED[args.job]}
     now = datetime.now(timezone.utc)
+    if args.job == "gate":  # the workflow's last step: fail when the sanity check failed
+        from .checks import gate
+
+        return gate(SITE_DIR)
     job = {"collect": _collect, "ais": _ais, "forecast": _forecast, "backfill": _backfill, "parse": _parse, "site": _site, "predict": _predict,
-           "labels": _labels, "score": _score, "archive": _archive}[args.job]
+           "labels": _labels, "score": _score, "archive": _archive,
+           "sanity": _sanity}[args.job]
     try:
         summary = job(env, now)
     except Exception as e:  # report and fail the run; the workflow raises an issue on repeats

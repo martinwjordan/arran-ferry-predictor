@@ -11,6 +11,9 @@
 #     "at risk", "cancelled by CalMac").
 #   binary_sensor.house_alert_ferry_chance: on when a sailing in the next 24 hours is below 75%, for the alert strip
 #     (severity warning below 40%). CalMac's own cancellations stay with binary_sensor.house_alert_ferries.
+#     Off while the data is failing its checks.
+#   binary_sensor.house_alert_ferry_data: on when the predictor's data fails its own sanity checks (for example
+#     CalMac's timetable feed going empty, as on 26 November 2026), so the board says so instead of trusting it.
 # Source and method: https://github.com/martinwjordan/arran-ferry-predictor (docs/home-assistant.md).
 
 rest:
@@ -28,6 +31,7 @@ rest:
     - model_as_of
     - data_through
     - runs
+    - sanity
 template:
 - sensor:
   - name: House ferry chance lowest
@@ -148,7 +152,18 @@ template:
   - name: House alert ferry chance
     unique_id: house_alert_ferry_chance
     icon: mdi:ferry
-    state: '{{ states(''sensor.house_ferry_chance_lowest'') | is_number and states(''sensor.house_ferry_chance_lowest'') | int < 75 }}'
+    state: >-
+      {{ states('sensor.house_ferry_chance_lowest') | is_number and states('sensor.house_ferry_chance_lowest') | int < 75
+         and (state_attr('sensor.house_ferry_chances', 'sanity') or {}).get('status') != 'fail' }}
     attributes:
       severity: '{{ ''warning'' if states(''sensor.house_ferry_chance_lowest'') | int(100) < 40 else ''info'' }}'
       message: 'Ferry chances: {{ state_attr(''sensor.house_ferry_chance_lowest'', ''sailing'') }} (lowest in the next 24 hours)'
+  - name: House alert ferry data
+    unique_id: house_alert_ferry_data
+    icon: mdi:database-alert
+    state: "{{ (state_attr('sensor.house_ferry_chances', 'sanity') or {}).get('status') == 'fail' }}"
+    attributes:
+      severity: warning
+      message: >-
+        {% set m = (state_attr('sensor.house_ferry_chances', 'sanity') or {}).get('messages') or [] %}
+        Ferry predictor data problem: {{ m[0] if m else 'failed its checks' }} Check CalMac directly.

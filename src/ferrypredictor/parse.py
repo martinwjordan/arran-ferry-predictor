@@ -126,6 +126,7 @@ class Sailing:
     minutes: int  # minutes after midnight, UK time
     removed: bool = False  # dropped from CalMac's feed, usually because it was cancelled
     removed_at: datetime | None = None  # when it was dropped, if it was
+    removal_confirmed: bool = False  # the removal is backed by a notice and wasn't a mass drop (checks.py)
 
 
 @dataclass

@@ -37,6 +37,14 @@ If a job fails three runs in a row, it opens a GitHub issue labelled `pipeline-f
 
 The design is in [`docs/superpowers/specs/`](docs/superpowers/specs/) and the build plans in [`docs/superpowers/plans/`](docs/superpowers/plans/).
 
+## Checks and balances
+
+No single source is believed on its own (`checks.py`, added after 26 November 2026, when CalMac's timetable feed went empty at 14:47 and the page showed every sailing cancelled):
+
+- **Corroboration.** A sailing dropping out of CalMac's feed counts as cancelled only if a CalMac notice backs it (cancelled, diverted or at risk). Mass drops (12 or more sailings, or 3 or more days, on a route at once) never count. Anything else shows as "Missing from CalMac's feed (not confirmed)", keeps its forecast chance, and is not trained on or scored. An empty feed for a route is a gap: the collector keeps the last known timetable.
+- **Sanity gate.** After each prediction run: is CalMac being read, does every route have sailings to come, is anything shown cancelled without a notice, are the chances and forecasts fresh, is all livestock and timber wording understood? A failure puts a "data problem" banner on the page and an alert on the house board (`binary_sensor.house_alert_ferry_data`), and fails the workflow; three in a row raise a GitHub issue.
+- **Quarantine.** While the gate fails, the window is recorded (`data/state/quarantine.json`); windows found later go in `config/quarantine.yaml`. Sailings due, and removals or predictions made, in a quarantine window are kept out of training and the scorecard.
+
 ## Data sources
 
 - Service status and timetables: CalMac's public website feed.

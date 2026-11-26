@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 from .bundle import Bundle
+from .checks import quarantine_windows, quarantined
 from .health import update_health
 from .labels import CONFIDENT, NOT_SCORED, RAN, read_live_labels
 from .predict import MODEL_PATH, PREDICTION_SCHEMA
@@ -154,6 +155,10 @@ def run_score(now: datetime, data_dir: Path, site_dir: Path, model_path: Path = 
     data_dir, site_dir = Path(data_dir), Path(site_dir)
     labels = pd.DataFrame(read_live_labels(data_dir))
     predictions = read_dataset(data_dir / "predictions", PREDICTION_SCHEMA).to_pandas()
+    windows = quarantine_windows(data_dir)  # predictions made while the data was faulty are not scored
+    if windows and len(predictions):
+        bad = predictions["predicted_at"].map(lambda t: quarantined(t.to_pydatetime() if hasattr(t, "to_pydatetime") else t, windows) is not None)
+        predictions = predictions[~bad]
     try:
         bundle = Bundle.load(model_path)
     except (OSError, ValueError):

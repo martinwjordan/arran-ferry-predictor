@@ -68,7 +68,11 @@ def test_collect_parses_notices_then_predicts_with_what_they_read_checked_out():
     assert "-1 day" in checkout  # last month's forecasts too
     assert runs.index("python -m ferrypredictor parse") == runs.index("python -m ferrypredictor collect") + 1
     assert runs.index("python -m ferrypredictor predict") == runs.index("python -m ferrypredictor parse") + 1
-    assert runs.index("python -m ferrypredictor labels") == runs.index("python -m ferrypredictor predict") + 1
+    assert runs.index("python -m ferrypredictor sanity") == runs.index("python -m ferrypredictor predict") + 1
+    assert runs.index("python -m ferrypredictor labels") == runs.index("python -m ferrypredictor sanity") + 1
+    # The gate fails the run only after the data (with the banner) is committed and the page rebuilt
+    commit = next(i for i, r in enumerate(runs) if r.startswith("bash scripts/commit_with_retry.sh"))
+    assert runs.index("python -m ferrypredictor gate") > commit
     assert runs.index("python -m ferrypredictor score") == runs.index("python -m ferrypredictor labels") + 1
     assert "data/predictions" in checkout and "data/labels_live" in checkout
 

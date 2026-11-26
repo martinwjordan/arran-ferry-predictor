@@ -67,9 +67,9 @@ EVENTS = [
 
 
 def labels_by_time(now=datetime(2026, 11, 27, 9, 0, tzinfo=UTC)):
-    from ferrypredictor.parse import build_timetable
+    from ferrypredictor import checks
     seen, start = L.first_seen(SAILINGS)
-    rows = L.build_labels(DAY, build_timetable(SAILINGS), EVENTS, STATUS, now, {}, seen, start)
+    rows = L.build_labels(DAY, checks.timetable(SAILINGS, EVENTS), EVENTS, STATUS, now, {}, seen, start)
     return {(r["route_code"], r["departure_local"]): r for r in rows}
 
 
@@ -88,7 +88,8 @@ def test_removal_before_departure_is_a_cancellation_unless_planned_well_ahead():
     planned = by[("003", "12:30")]
     assert (planned["label"], planned["train"], planned["exclusion"]) == ("planned_change", False, "planned_timetable_change")
     unknown = by[("003", "13:55")]
-    assert (unknown["label"], unknown["train"], unknown["exclusion"]) == ("cancelled_unknown", False, "cancellation_reason_unknown")
+    # Removed with no notice behind it: not taken as a cancellation (checks.py, after 26 Nov 2026)
+    assert (unknown["label"], unknown["train"], unknown["exclusion"]) == ("unknown", False, "removal_unconfirmed")
 
 
 def test_ran_with_or_without_a_warning_and_late_additions_are_left_out():

@@ -32,7 +32,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 
-from . import cargo
+from . import cargo, checks
 from . import features as F
 from . import parse
 from .bundle import Bundle
@@ -143,14 +143,15 @@ def build(now: datetime, data_dir: Path, bundle: Bundle) -> tuple[list[dict], di
 
     data_dir = Path(data_dir)
     sail_rows = read_dataset(data_dir / "sailings", SAILING_SCHEMA).to_pylist()
-    timetable = parse.build_timetable(sail_rows)
+    all_events = read_dataset(data_dir / "events", parse.EVENT_SCHEMA).to_pylist()
+    timetable = checks.timetable(sail_rows, all_events)  # removals only count when a notice backs them
     detail = {}
     for r in sail_rows:
         if r.get("departure_at"):
             detail[r.get("sailing_key") or sailing_key(r["route_code"], r["origin"], r["departure_at"])] = r
     vessels = operating_vessels(read_dataset(data_dir / "route_status", ROUTE_STATUS_SCHEMA).to_pylist(), _route_overrides())
     live = active_versions(read_dataset(data_dir / "notices", NOTICE_SCHEMA).to_pylist(), now)
-    events = current_events(read_dataset(data_dir / "events", parse.EVENT_SCHEMA).to_pylist(), live)
+    events = current_events(all_events, live)
     stock = cargo.restrictions(live, timetable)
     forecasts, runs = latest_runs(read_dataset(data_dir / "forecasts", FORECAST_SCHEMA).to_pandas())
 
@@ -189,7 +190,7 @@ def build(now: datetime, data_dir: Path, bundle: Bundle) -> tuple[list[dict], di
     for _, row in S.iterrows():
         s = by_key[row["sailing_key"]]
         dep = row["departure_at"]
-        word = calmac_word(events.get(s.key, set()), s.removed)
+        word = calmac_word(events.get(s.key, set()), s.removed and s.removal_confirmed)
         p = preds.get(s.key)
         p_runs = 0.0 if word == "cancelled" else (p["p_runs"] if p else None)
         offset = (s.date - today).days
@@ -206,6 +207,7 @@ def build(now: datetime, data_dir: Path, bundle: Bundle) -> tuple[list[dict], di
             "show": "percent" if offset < PERCENT_DAYS else "band",
             "band": band(p_runs) if p_runs is not None else None,
             "livestock": stock_light,
+            "missing_from_feed": s.removed and not s.removal_confirmed,
         })
     return out, meta
 
