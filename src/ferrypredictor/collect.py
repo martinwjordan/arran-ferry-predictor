@@ -145,8 +145,28 @@ def _notice_rows(routes: list[Route], seen: set[str], now: datetime) -> tuple[li
     return rows, keys
 
 
+def _feed_gaps(current: dict[str, dict], last: dict[str, dict], now: datetime, codes: list[str]) -> list[str]:
+    """Routes CalMac returned no sailings for, though we hold sailings still to come: a feed outage, not cancellations.
+
+    On 26 November 2026 at 14:47 CalMac's API started returning no sailings for any route or date, while routes and
+    notices still came through. Read literally, every future sailing had been removed, and the page showed them all
+    as cancelled. CalMac drops cancelled sailings one by one, and never a whole route's horizon at once, so an empty
+    answer for a route is treated as a gap: no removals are logged and the last known sailings are kept.
+    """
+    have = {rec["route_code"] for rec in current.values()}
+    gaps = []
+    for code in codes:
+        if code in have:
+            continue
+        upcoming = [v for v in last.values() if v.get("route_code") == code and v.get("departure_at")
+                    and datetime.fromisoformat(v["departure_at"]) > now]
+        if upcoming:
+            gaps.append(code)
+    return gaps
+
+
 def _sailing_changes(
-    current: dict[str, dict], last: dict[str, dict], now: datetime
+    current: dict[str, dict], last: dict[str, dict], now: datetime, gaps: list[str] | tuple = ()
 ) -> tuple[list[dict], dict[str, dict]]:
     rows = []
     for sid, rec in current.items():
@@ -156,7 +176,7 @@ def _sailing_changes(
         elif _comparable(rec) != {k: prev.get(k) for k in _SAILING_FIELDS}:
             rows.append({**rec, "change_type": "changed", "observed_at": now})
     for sid, prev in last.items():
-        if sid in current:
+        if sid in current or prev.get("route_code") in gaps:
             continue
         departure = prev.get("departure_at")
         if departure and datetime.fromisoformat(departure) > now:
@@ -165,6 +185,9 @@ def _sailing_changes(
         key: {"route_code": rec["route_code"], "calmac_id": rec["sailing_id"], **_comparable(rec)}
         for key, rec in current.items()
     }
+    for sid, prev in last.items():  # carry a gap route's sailings forward until the feed is back
+        if prev.get("route_code") in gaps and sid not in new_state:
+            new_state[sid] = prev
     return rows, new_state
 
 
@@ -203,7 +226,8 @@ def run_collect(client, now: datetime, data_dir: Path, site_dir: Path) -> dict:
     # Sailings: new, changed, or removed before departure.
     last_path = state_dir / "sailings_last.json"
     last = _migrate_state(load_state(last_path, {}))
-    sailing_rows, new_last = _sailing_changes(current, last, now)
+    gaps = _feed_gaps(current, last, now, codes)
+    sailing_rows, new_last = _sailing_changes(current, last, now, gaps)
     append_rows(data_dir / "sailings", sailing_rows, SAILING_SCHEMA, now)
 
     # Route status: only when status, effective status or vessel list changes.
@@ -226,5 +250,8 @@ def run_collect(client, now: datetime, data_dir: Path, site_dir: Path) -> dict:
     save_state(rs_path, rs_new)
 
     summary = {"notices": len(notice_rows), "sailings": len(sailing_rows), "route_status": len(rs_rows)}
-    update_health(site_dir, "collect", now, details={**summary, "sailings_tracked": len(current)})
+    details = {**summary, "sailings_tracked": len(current)}
+    if gaps:
+        details["sailings_feed_empty"] = gaps  # CalMac returned no sailings for these routes; last known kept
+    update_health(site_dir, "collect", now, details=details)
     return summary

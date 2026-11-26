@@ -147,3 +147,30 @@ def test_route_status_change_writes_a_row(dirs):
     run(client, dirs)
     client.routes[0].status = "DISRUPTIONS"
     assert run(client, dirs)["route_status"] == 1
+
+
+def test_empty_feed_is_a_gap_not_cancellations(dirs):
+    """26 Nov 2026, 14:47: CalMac's API returned no sailings anywhere; nothing must be logged as removed."""
+    client = FakeClient()
+    run(client, dirs)
+    full = copy.deepcopy(client.sailings)
+    client.sailings = {"003": [], "301": []}
+    later = datetime(2026, 11, 23, 14, 47, tzinfo=timezone.utc)
+    assert run(client, dirs, now=later)["sailings"] == 0
+    assert {r["change_type"] for r in sailing_rows(dirs)} == {"new"}
+    health = json.loads((dirs[1] / "health" / "collect.json").read_text())
+    assert health["details"]["sailings_feed_empty"] == ["003", "301"]
+    # Last known sailings are carried forward, so the feed coming back logs no changes
+    client.sailings = full
+    assert run(client, dirs, now=datetime(2026, 11, 23, 15, 7, tzinfo=timezone.utc))["sailings"] == 0
+
+
+def test_one_route_empty_keeps_the_other_route_live(dirs):
+    client = FakeClient()
+    run(client, dirs)
+    client.sailings["003"] = []
+    s1810 = next(s for s in client.sailings["301"] if s.departure_date_time == datetime(2026, 11, 23, 18, 10, tzinfo=timezone.utc))
+    client.sailings["301"].remove(s1810)
+    assert run(client, dirs)["sailings"] == 1
+    removed = [r["sailing_key"] for r in sailing_rows(dirs) if r["change_type"] == "removed"]
+    assert removed == ["301|Troon|2026-11-23T18:10:00+00:00"]
