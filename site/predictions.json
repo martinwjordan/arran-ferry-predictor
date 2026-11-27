@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-27T12:07:41+00:00",
+ "generated_at": "2026-11-27T12:27:40+00:00",
  "model_as_of": "2026-10-01",
  "data_through": "2026-09-30",
  "runs": {
@@ -166,7 +166,7 @@
      "show": "percent",
      "band": "Likely",
      "calmac": "at_risk",
-     "livestock": "red",
+     "livestock": "amber",
      "livestock_source": "calmac"
     },
     {
@@ -239,7 +239,7 @@
      "show": "percent",
      "band": "Likely",
      "calmac": "at_risk",
-     "livestock": "red",
+     "livestock": "amber",
      "livestock_source": "calmac"
     },
     {
@@ -250,7 +250,7 @@
      "show": "percent",
      "band": "Likely",
      "calmac": "at_risk",
-     "livestock": "red",
+     "livestock": "amber",
      "livestock_source": "calmac"
     },
     {
@@ -1471,9 +1471,9 @@
    "show": "percent",
    "band": "Likely",
    "livestock": {
-    "light": "red",
+    "light": "amber",
     "source": "calmac",
-    "why": "No livestock or timber will be carried on this crossing."
+    "why": "Livestock and timber will be carried on a case-by-case basis."
    },
    "missing_from_feed": false
   },
@@ -1495,9 +1495,9 @@
    "show": "percent",
    "band": "Likely",
    "livestock": {
-    "light": "red",
+    "light": "amber",
     "source": "calmac",
-    "why": "No livestock or timber will be carried on this crossing."
+    "why": "Livestock and timber will be carried on a case-by-case basis."
    },
    "missing_from_feed": false
   },
@@ -1519,9 +1519,9 @@
    "show": "percent",
    "band": "Likely",
    "livestock": {
-    "light": "red",
+    "light": "amber",
     "source": "calmac",
-    "why": "No livestock or timber will be carried on this crossing."
+    "why": "Livestock and timber will be carried on a case-by-case basis."
    },
    "missing_from_feed": false
   },
@@ -1543,9 +1543,9 @@
    "show": "percent",
    "band": "Likely",
    "livestock": {
-    "light": "red",
+    "light": "amber",
     "source": "calmac",
-    "why": "No livestock or timber will be carried on this crossing."
+    "why": "Livestock and timber will be carried on a case-by-case basis."
    },
    "missing_from_feed": false
   },
@@ -1567,9 +1567,9 @@
    "show": "percent",
    "band": "Likely",
    "livestock": {
-    "light": "red",
+    "light": "amber",
     "source": "calmac",
-    "why": "No livestock or timber will be carried on this crossing."
+    "why": "Livestock and timber will be carried on a case-by-case basis."
    },
    "missing_from_feed": false
   },
@@ -1591,9 +1591,9 @@
    "show": "percent",
    "band": "Likely",
    "livestock": {
-    "light": "red",
+    "light": "amber",
     "source": "calmac",
-    "why": "No livestock or timber will be carried on this crossing."
+    "why": "Livestock and timber will be carried on a case-by-case basis."
    },
    "missing_from_feed": false
   },
