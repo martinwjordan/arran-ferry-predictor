@@ -1,6 +1,6 @@
 {
  "details": {
-  "archived": 73,
+  "archived": 0,
   "model_as_of": "2026-10-01",
   "runs": {
    "ecmwf_ifs025": "2026-11-26T12:00:00+00:00",
@@ -10,6 +10,6 @@
   "with_chance": 73
  },
  "job": "predict",
- "last_success": "2026-11-27T01:07:35+00:00",
- "updated": "2026-11-27T01:07:35+00:00"
+ "last_success": "2026-11-27T01:27:41+00:00",
+ "updated": "2026-11-27T01:27:41+00:00"
 }
