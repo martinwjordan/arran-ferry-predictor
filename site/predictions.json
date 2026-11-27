@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-27T15:47:44+00:00",
+ "generated_at": "2026-11-27T16:07:42+00:00",
  "model_as_of": "2026-10-01",
  "data_through": "2026-09-30",
  "runs": {
@@ -159,17 +159,6 @@
    "to": "Troon",
    "sailings": [
     {
-     "date": "2026-11-27",
-     "time": "16:00",
-     "vessel": "ALFRED",
-     "chance": 98,
-     "show": "percent",
-     "band": "Likely",
-     "calmac": "at_risk",
-     "livestock": "amber",
-     "livestock_source": "calmac"
-    },
-    {
      "date": "2026-11-28",
      "time": "07:30",
      "vessel": "ALFRED",
@@ -219,6 +208,17 @@
      "vessel": "ALFRED",
      "chance": 73,
      "show": "percent",
+     "band": "Uncertain",
+     "calmac": null,
+     "livestock": "amber",
+     "livestock_source": "estimate"
+    },
+    {
+     "date": "2026-11-30",
+     "time": "07:30",
+     "vessel": "ALFRED",
+     "chance": 51,
+     "show": "band",
      "band": "Uncertain",
      "calmac": null,
      "livestock": "amber",
@@ -1545,7 +1545,7 @@
    "from": "Brodick",
    "to": "Troon",
    "vessel": "ALFRED",
-   "departed": false,
+   "departed": true,
    "calmac": "at_risk",
    "lead_day": 1,
    "lead_hours": 10.0,
