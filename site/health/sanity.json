@@ -1,0 +1,9 @@
+{
+ "details": {
+  "checks": 1,
+  "status": "fail"
+ },
+ "job": "sanity",
+ "last_success": "2026-11-27T00:07:43+00:00",
+ "updated": "2026-11-27T00:07:43+00:00"
+}

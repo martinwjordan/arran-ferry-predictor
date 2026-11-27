@@ -1,12 +1,19 @@
 {
  "details": {
-  "days_labelled": [],
-  "labeller_version": 2,
-  "labels": {},
-  "relabelled_all": false,
-  "settled_through": "2026-11-24"
+  "days_labelled": [
+   "2026-11-24",
+   "2026-11-25"
+  ],
+  "labeller_version": 3,
+  "labels": {
+   "cancelled_weather": 7,
+   "diverted": 8,
+   "operated": 16
+  },
+  "relabelled_all": true,
+  "settled_through": "2026-11-25"
  },
  "job": "labels",
- "last_success": "2026-11-26T23:47:45+00:00",
- "updated": "2026-11-26T23:47:45+00:00"
+ "last_success": "2026-11-27T00:07:43+00:00",
+ "updated": "2026-11-27T00:07:43+00:00"
 }

@@ -1,0 +1,12 @@
+{
+ "checked_at": "2026-11-27T00:07:43+00:00",
+ "status": "fail",
+ "checks": [
+  {
+   "id": "feed_empty",
+   "status": "fail",
+   "message": "CalMac's timetable feed is returning no sailings (Ardrossan to Brodick, Troon to Brodick); showing the last known timetable."
+  }
+ ],
+ "quarantine_open": true
+}
