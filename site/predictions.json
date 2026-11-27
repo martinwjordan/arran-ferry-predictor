@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-27T07:27:35+00:00",
+ "generated_at": "2026-11-27T07:47:34+00:00",
  "model_as_of": "2026-10-01",
  "data_through": "2026-09-30",
  "runs": {
@@ -160,17 +160,6 @@
    "sailings": [
     {
      "date": "2026-11-27",
-     "time": "07:30",
-     "vessel": "ALFRED",
-     "chance": 98,
-     "show": "percent",
-     "band": "Likely",
-     "calmac": "at_risk",
-     "livestock": "red",
-     "livestock_source": "calmac"
-    },
-    {
-     "date": "2026-11-27",
      "time": "12:05",
      "vessel": "ALFRED",
      "chance": 98,
@@ -222,6 +211,17 @@
      "band": "Likely",
      "calmac": null,
      "livestock": "green",
+     "livestock_source": "estimate"
+    },
+    {
+     "date": "2026-11-29",
+     "time": "11:50",
+     "vessel": "ALFRED",
+     "chance": 86,
+     "show": "percent",
+     "band": "Likely",
+     "calmac": null,
+     "livestock": "amber",
      "livestock_source": "estimate"
     }
    ]
@@ -1461,7 +1461,7 @@
    "from": "Brodick",
    "to": "Troon",
    "vessel": "ALFRED",
-   "departed": false,
+   "departed": true,
    "calmac": "at_risk",
    "lead_day": 1,
    "lead_hours": 7.5,
@@ -2055,9 +2055,7 @@
   }
  ],
  "sanity": {
-  "status": "fail",
-  "messages": [
-   "CalMac's timetable feed is returning no sailings (Ardrossan to Brodick, Troon to Brodick); showing the last known timetable."
-  ]
+  "status": "ok",
+  "messages": []
  }
 }
