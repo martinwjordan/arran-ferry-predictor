@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-27T19:27:34+00:00",
+ "generated_at": "2026-11-27T19:41:54+00:00",
  "model_as_of": "2026-10-01",
  "data_through": "2026-09-30",
  "runs": {
@@ -1434,7 +1434,7 @@
    "to": "Troon",
    "vessel": "ALFRED",
    "departed": true,
-   "calmac": "at_risk",
+   "calmac": null,
    "lead_day": null,
    "lead_hours": null,
    "p_weather": null,
@@ -1442,11 +1442,7 @@
    "p_runs": null,
    "show": "percent",
    "band": null,
-   "livestock": {
-    "light": "amber",
-    "source": "calmac",
-    "why": "Livestock and timber will be carried on a case-by-case basis."
-   },
+   "livestock": null,
    "missing_from_feed": false
   },
   {
@@ -1458,7 +1454,7 @@
    "to": "Brodick",
    "vessel": "ALFRED",
    "departed": true,
-   "calmac": "at_risk",
+   "calmac": null,
    "lead_day": null,
    "lead_hours": null,
    "p_weather": null,
@@ -1466,11 +1462,7 @@
    "p_runs": null,
    "show": "percent",
    "band": null,
-   "livestock": {
-    "light": "amber",
-    "source": "calmac",
-    "why": "Livestock and timber will be carried on a case-by-case basis."
-   },
+   "livestock": null,
    "missing_from_feed": false
   },
   {
@@ -1482,7 +1474,7 @@
    "to": "Troon",
    "vessel": "ALFRED",
    "departed": true,
-   "calmac": "at_risk",
+   "calmac": null,
    "lead_day": null,
    "lead_hours": null,
    "p_weather": null,
@@ -1490,11 +1482,7 @@
    "p_runs": null,
    "show": "percent",
    "band": null,
-   "livestock": {
-    "light": "amber",
-    "source": "calmac",
-    "why": "Livestock and timber will be carried on a case-by-case basis."
-   },
+   "livestock": null,
    "missing_from_feed": false
   },
   {
@@ -1506,7 +1494,7 @@
    "to": "Brodick",
    "vessel": "ALFRED",
    "departed": true,
-   "calmac": "at_risk",
+   "calmac": null,
    "lead_day": null,
    "lead_hours": null,
    "p_weather": null,
@@ -1514,11 +1502,7 @@
    "p_runs": null,
    "show": "percent",
    "band": null,
-   "livestock": {
-    "light": "amber",
-    "source": "calmac",
-    "why": "Livestock and timber will be carried on a case-by-case basis."
-   },
+   "livestock": null,
    "missing_from_feed": false
   },
   {
@@ -1530,7 +1514,7 @@
    "to": "Troon",
    "vessel": "ALFRED",
    "departed": true,
-   "calmac": "at_risk",
+   "calmac": null,
    "lead_day": null,
    "lead_hours": null,
    "p_weather": null,
@@ -1538,11 +1522,7 @@
    "p_runs": null,
    "show": "percent",
    "band": null,
-   "livestock": {
-    "light": "amber",
-    "source": "calmac",
-    "why": "Livestock and timber will be carried on a case-by-case basis."
-   },
+   "livestock": null,
    "missing_from_feed": false
   },
   {
@@ -1554,7 +1534,7 @@
    "to": "Brodick",
    "vessel": "ALFRED",
    "departed": true,
-   "calmac": "at_risk",
+   "calmac": null,
    "lead_day": 1,
    "lead_hours": 6.2,
    "p_weather": 0.0018,
@@ -1563,9 +1543,9 @@
    "show": "percent",
    "band": "Likely",
    "livestock": {
-    "light": "amber",
-    "source": "calmac",
-    "why": "Livestock and timber will be carried on a case-by-case basis."
+    "light": "green",
+    "source": "estimate",
+    "why": "No sign of restrictions in the forecast."
    },
    "missing_from_feed": false
   },
