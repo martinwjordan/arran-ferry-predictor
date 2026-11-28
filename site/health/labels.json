@@ -1,12 +1,17 @@
 {
  "details": {
-  "days_labelled": [],
+  "days_labelled": [
+   "2026-11-26"
+  ],
   "labeller_version": 3,
-  "labels": {},
+  "labels": {
+   "cancelled_unknown": 1,
+   "operated": 15
+  },
   "relabelled_all": false,
-  "settled_through": "2026-11-25"
+  "settled_through": "2026-11-26"
  },
  "job": "labels",
- "last_success": "2026-11-27T23:47:42+00:00",
- "updated": "2026-11-27T23:47:42+00:00"
+ "last_success": "2026-11-28T00:07:38+00:00",
+ "updated": "2026-11-28T00:07:38+00:00"
 }

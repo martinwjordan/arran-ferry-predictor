@@ -1,28 +1,39 @@
 {
- "generated_at": "2026-11-27T23:47:43+00:00",
+ "generated_at": "2026-11-28T00:07:39+00:00",
  "labels_from": "2026-11-24",
- "labels_through": "2026-11-25",
- "labelled_sailings": 31,
- "scored_sailings": 18,
+ "labels_through": "2026-11-26",
+ "labelled_sailings": 47,
+ "scored_sailings": 28,
  "left_out_calmac_already_cancelled": 0,
  "by_lead": {
   "1": {
-   "sailings": 18,
-   "ran": 0.9444,
-   "mean_chance": 0.8994,
-   "brier": 0.0422,
-   "brier_assume_sails": 0.0556,
-   "brier_climatology": 0.0629,
+   "sailings": 28,
+   "ran": 0.9643,
+   "mean_chance": 0.8905,
+   "brier": 0.0346,
+   "brier_assume_sails": 0.0357,
+   "brier_climatology": 0.0494,
    "skill_vs_assume_sails": null,
    "skill_vs_climatology": null,
    "auc": 1.0
+  },
+  "2": {
+   "sailings": 10,
+   "ran": 1.0,
+   "mean_chance": 0.8771,
+   "brier": 0.0197,
+   "brier_assume_sails": 0.0,
+   "brier_climatology": 0.025,
+   "skill_vs_assume_sails": null,
+   "skill_vs_climatology": null,
+   "auc": null
   }
  },
  "bands": {
   "Likely": {
-   "sailings": 18,
-   "ran": 0.944,
-   "mean_chance": 0.899
+   "sailings": 38,
+   "ran": 0.974,
+   "mean_chance": 0.887
   },
   "Uncertain": {
    "sailings": 0,
