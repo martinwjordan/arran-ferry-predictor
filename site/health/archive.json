@@ -1,14 +1,14 @@
 {
  "details": {
-  "requests": 0,
-  "rows": 0,
-  "target": "2026-11-25",
+  "requests": 2,
+  "rows": 1200,
+  "target": "2026-11-26",
   "through": {
-   "ecmwf_ifs025": "2026-11-25",
-   "gfs_seamless": "2026-11-25"
+   "ecmwf_ifs025": "2026-11-26",
+   "gfs_seamless": "2026-11-26"
   }
  },
  "job": "archive",
- "last_success": "2026-11-27T18:53:33+00:00",
- "updated": "2026-11-27T18:53:33+00:00"
+ "last_success": "2026-11-28T00:53:33+00:00",
+ "updated": "2026-11-28T00:53:33+00:00"
 }

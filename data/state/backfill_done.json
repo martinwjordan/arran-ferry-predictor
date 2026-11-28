@@ -1,7 +1,7 @@
 {
  "_through": {
-  "ecmwf_ifs025": "2026-11-25",
-  "gfs_seamless": "2026-11-25"
+  "ecmwf_ifs025": "2026-11-26",
+  "gfs_seamless": "2026-11-26"
  },
  "ecmwf_ifs025|2024-01": {
   "fetched_at": "2026-11-23T19:47:10+00:00",
