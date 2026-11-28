@@ -1,11 +1,11 @@
 {
  "details": {
-  "notices": 0,
-  "route_status": 0,
+  "notices": 1,
+  "route_status": 1,
   "sailings": 0,
   "sailings_tracked": 116
  },
  "job": "collect",
- "last_success": "2026-11-28T16:07:31+00:00",
- "updated": "2026-11-28T16:07:31+00:00"
+ "last_success": "2026-11-28T16:27:37+00:00",
+ "updated": "2026-11-28T16:27:37+00:00"
 }

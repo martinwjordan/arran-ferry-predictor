@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-28T16:07:33+00:00",
+ "generated_at": "2026-11-28T16:27:39+00:00",
  "model_as_of": "2026-10-01",
  "data_through": "2026-09-30",
  "runs": {
@@ -1454,7 +1454,11 @@
    "p_runs": null,
    "show": "percent",
    "band": null,
-   "livestock": null,
+   "livestock": {
+    "light": "red",
+    "source": "calmac",
+    "why": "Please note no timber or livestock will be carried on these sailings."
+   },
    "missing_from_feed": false
   },
   {
@@ -1474,7 +1478,11 @@
    "p_runs": null,
    "show": "percent",
    "band": null,
-   "livestock": null,
+   "livestock": {
+    "light": "red",
+    "source": "calmac",
+    "why": "Please note no timber or livestock will be carried on these sailings."
+   },
    "missing_from_feed": false
   },
   {
@@ -1495,9 +1503,9 @@
    "show": "percent",
    "band": "Likely",
    "livestock": {
-    "light": "green",
-    "source": "estimate",
-    "why": "No sign of restrictions in the forecast."
+    "light": "red",
+    "source": "calmac",
+    "why": "Please note no timber or livestock will be carried on these sailings."
    },
    "missing_from_feed": false
   },
@@ -1519,9 +1527,9 @@
    "show": "percent",
    "band": "Likely",
    "livestock": {
-    "light": "green",
-    "source": "estimate",
-    "why": "No sign of restrictions in the forecast."
+    "light": "red",
+    "source": "calmac",
+    "why": "Please note no timber or livestock will be carried on these sailings."
    },
    "missing_from_feed": false
   },
@@ -1543,9 +1551,9 @@
    "show": "percent",
    "band": "Likely",
    "livestock": {
-    "light": "green",
-    "source": "estimate",
-    "why": "No sign of restrictions in the forecast."
+    "light": "red",
+    "source": "calmac",
+    "why": "Please note no timber or livestock will be carried on these sailings."
    },
    "missing_from_feed": false
   },
