@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-28T17:47:42+00:00",
+ "generated_at": "2026-11-28T18:07:39+00:00",
  "model_as_of": "2026-10-01",
  "data_through": "2026-09-30",
  "runs": {
@@ -12,17 +12,6 @@
    "from": "Ardrossan",
    "to": "Brodick",
    "sailings": [
-    {
-     "date": "2026-11-28",
-     "time": "18:00",
-     "vessel": "CALEDONIAN ISLES",
-     "chance": 87,
-     "show": "percent",
-     "band": "Likely",
-     "calmac": null,
-     "livestock": "green",
-     "livestock_source": "estimate"
-    },
     {
      "date": "2026-11-29",
      "time": "09:45",
@@ -72,6 +61,17 @@
      "time": "07:00",
      "vessel": "CALEDONIAN ISLES",
      "chance": 28,
+     "show": "percent",
+     "band": "Unlikely",
+     "calmac": null,
+     "livestock": "red",
+     "livestock_source": "estimate"
+    },
+    {
+     "date": "2026-11-30",
+     "time": "09:45",
+     "vessel": "CALEDONIAN ISLES",
+     "chance": 39,
      "show": "percent",
      "band": "Unlikely",
      "calmac": null,
@@ -485,7 +485,7 @@
    "from": "Ardrossan",
    "to": "Brodick",
    "vessel": "CALEDONIAN ISLES",
-   "departed": false,
+   "departed": true,
    "calmac": null,
    "lead_day": 1,
    "lead_hours": 12.0,
