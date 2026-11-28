@@ -1,25 +1,19 @@
 {
  "details": {
   "rows": {
-   "ecmwf_ifs": 660,
-   "ecmwf_ifs025": 660,
-   "gfs_seamless": 660,
-   "marine": 660,
+   "ecmwf_ifs": 0,
+   "ecmwf_ifs025": 645,
+   "gfs_seamless": 0,
+   "marine": 645,
    "ukmo_uk_deterministic_2km": 245
   },
   "run_times": {
    "ecmwf_ifs": "2026-11-28T06:00:00+00:00",
-   "ecmwf_ifs025": "2026-11-28T00:00:00+00:00",
+   "ecmwf_ifs025": "2026-11-28T06:00:00+00:00",
    "gfs_seamless": "2026-11-28T06:00:00+00:00",
-   "ukmo_uk_deterministic_2km": "2026-11-28T08:00:00+00:00"
+   "ukmo_uk_deterministic_2km": "2026-11-28T11:00:00+00:00"
   },
   "shared_grid_cells": {
-   "ecmwf_ifs": [
-    [
-     "ardrossan",
-     "mid_ardrossan"
-    ]
-   ],
    "ecmwf_ifs025": [
     [
      "ardrossan",
@@ -30,17 +24,11 @@
      "mid_ardrossan",
      "mid_troon"
     ]
-   ],
-   "gfs_seamless": [
-    [
-     "mid_ardrossan",
-     "mid_troon"
-    ]
    ]
   }
  },
  "job": "forecast",
  "last_failure": "2026-11-23T16:02:33+00:00",
- "last_success": "2026-11-28T12:53:34+00:00",
- "updated": "2026-11-28T12:53:34+00:00"
+ "last_success": "2026-11-28T15:52:26+00:00",
+ "updated": "2026-11-28T15:52:26+00:00"
 }
